@@ -1,0 +1,36 @@
+# Belt-and-suspenders: keep dev-only and Yarn PnP artifacts out of the tarball.
+# Primary allowlist is package.json "files" (dist). Expand cautiously.
+
+# Source, tests, and demos
+src/
+tests/
+e2e/
+site/
+
+# Build / tooling (dist is still included via "files")
+*.config.*
+tsconfig*.json
+vite.config.ts
+vitest.config.ts
+playwright.config.cjs
+index.html
+
+# Yarn Berry / PnP (never publish these — consumers use their own install)
+.yarn/
+.pnp.cjs
+.pnp.loader.mjs
+.yarnrc.yml
+
+# Logs and caches
+*.log
+coverage/
+test-results/
+playwright-report/
+playwright/.cache/
+node_modules/
+
+# Misc
+.DS_Store
+.git/
+.gitignore
+.editorconfig

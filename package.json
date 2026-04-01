@@ -1,5 +1,5 @@
 {
-  "name": "stream-range",
+  "name": "range",
   "version": "0.1.0",
   "description": "Async range tracking with EventTarget subscriptions (viewable + prefetch slices) and optional ticks",
   "type": "module",
@@ -19,6 +19,7 @@
   ],
   "sideEffects": false,
   "scripts": {
+    "prepublishOnly": "yarn build",
     "dev": "vite",
     "dev:e2e": "vite --port 5320 --strictPort --host 127.0.0.1",
     "playwright:install": "playwright install chromium",
