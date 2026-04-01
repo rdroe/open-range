@@ -1,4 +1,14 @@
 node_modules
+
+# Yarn Berry (PnP): ignore cache, unplugged packages, install state, etc.
+# Commit when present: .yarn/releases, .yarn/plugins, .yarn/patches, .yarn/sdks, .yarn/versions
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
 dist
 site
 coverage

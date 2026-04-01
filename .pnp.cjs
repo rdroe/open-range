@@ -28,6 +28,7 @@ const RAW_RUNTIME_STATE =
         "packageDependencies": [\
           ["@playwright/test", "npm:1.59.0"],\
           ["@types/node", "npm:22.19.15"],\
+          ["fake-indexeddb", "npm:6.2.5"],\
           ["happy-dom", "npm:20.8.9"],\
           ["typescript", "patch:typescript@npm%3A5.9.3#optional!builtin<compat/typescript>::version=5.9.3&hash=e012d7"],\
           ["vite", "virtual:8013a5d7bd538cdbf31e9f1ea12ccccd3207b66cc5919dc765d845ec0389c77a7a4cdc13fa77ecd08da8f9c765d14917dd186238e51ceca1b4631e2b512cc374#npm:6.4.1"],\
@@ -1128,6 +1129,15 @@ const RAW_RUNTIME_STATE =
         "linkType": "HARD"\
       }]\
     ]],\
+    ["fake-indexeddb", [\
+      ["npm:6.2.5", {\
+        "packageLocation": "../../.yarn/berry/cache/fake-indexeddb-npm-6.2.5-c91bfb8bf4-10c0.zip/node_modules/fake-indexeddb/",\
+        "packageDependencies": [\
+          ["fake-indexeddb", "npm:6.2.5"]\
+        ],\
+        "linkType": "HARD"\
+      }]\
+    ]],\
     ["fdir", [\
       ["npm:6.5.0", {\
         "packageLocation": "../../.yarn/berry/cache/fdir-npm-6.5.0-8814a0dec7-10c0.zip/node_modules/fdir/",\
@@ -1475,6 +1485,7 @@ const RAW_RUNTIME_STATE =
           ["open-range", "workspace:."],\
           ["@playwright/test", "npm:1.59.0"],\
           ["@types/node", "npm:22.19.15"],\
+          ["fake-indexeddb", "npm:6.2.5"],\
           ["happy-dom", "npm:20.8.9"],\
           ["typescript", "patch:typescript@npm%3A5.9.3#optional!builtin<compat/typescript>::version=5.9.3&hash=e012d7"],\
           ["vite", "virtual:8013a5d7bd538cdbf31e9f1ea12ccccd3207b66cc5919dc765d845ec0389c77a7a4cdc13fa77ecd08da8f9c765d14917dd186238e51ceca1b4631e2b512cc374#npm:6.4.1"],\
