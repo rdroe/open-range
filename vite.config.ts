@@ -7,8 +7,8 @@ export default defineConfig(({ mode }) => {
       build: {
         lib: {
           entry: fileURLToPath(new URL('./src/lib/index.ts', import.meta.url)),
-          name: 'StreamRange',
-          fileName: 'stream-range',
+          name: 'OpenRange',
+          fileName: 'open-range',
           formats: ['es', 'cjs'],
         },
         outDir: 'dist',

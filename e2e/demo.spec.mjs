@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 
-test.describe('stream-range demo', () => {
+test.describe('open-range demo', () => {
   test('mounts alphadex and numeric dimensional examples', async ({ page }) => {
     await page.goto('/')
     await expect(page.locator('#dimensional-example-alphadex')).toBeVisible({ timeout: 15_000 })

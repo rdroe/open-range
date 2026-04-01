@@ -4,20 +4,58 @@
   "description": "Async range tracking with EventTarget subscriptions (viewable + prefetch slices) and optional ticks",
   "type": "module",
   "license": "MIT",
-  "main": "./dist/stream-range.cjs",
-  "module": "./dist/stream-range.js",
+  "main": "./dist/open-range.cjs",
+  "module": "./dist/open-range.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/stream-range.js",
-      "require": "./dist/stream-range.cjs"
-    }
+      "import": "./dist/open-range.js",
+      "require": "./dist/open-range.cjs",
+      "default": "./dist/open-range.js"
+    },
+    "./basicRange": {
+      "types": "./dist/basicRange/index.d.ts",
+      "import": "./dist/open-range.js",
+      "require": "./dist/open-range.cjs",
+      "default": "./dist/open-range.js"
+    },
+    "./readableRange": {
+      "types": "./dist/readableRange/index.d.ts",
+      "import": "./dist/open-range.js",
+      "require": "./dist/open-range.cjs",
+      "default": "./dist/open-range.js"
+    },
+    "./dimensionalRange": {
+      "types": "./dist/dimensionalRange/index.d.ts",
+      "import": "./dist/open-range.js",
+      "require": "./dist/open-range.cjs",
+      "default": "./dist/open-range.js"
+    },
+    "./ticks": {
+      "types": "./dist/ticks/index.d.ts",
+      "import": "./dist/open-range.js",
+      "require": "./dist/open-range.cjs",
+      "default": "./dist/open-range.js"
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "dist"
   ],
   "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "range",
+    "slider",
+    "async",
+    "event-target",
+    "virtualization",
+    "prefetch",
+    "ticks"
+  ],
   "scripts": {
     "prepublishOnly": "yarn build",
     "dev": "vite",

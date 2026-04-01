@@ -1352,6 +1352,19 @@ __metadata:
   languageName: node
   linkType: hard
 
+"open-range@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "open-range@workspace:."
+  dependencies:
+    "@playwright/test": "npm:^1.49.1"
+    "@types/node": "npm:^22.10.2"
+    happy-dom: "npm:^20.8.9"
+    typescript: "npm:^5.7.2"
+    vite: "npm:^6.0.3"
+    vitest: "npm:^2.1.8"
+  languageName: unknown
+  linkType: soft
+
 "p-map@npm:^7.0.2":
   version: 7.0.4
   resolution: "p-map@npm:7.0.4"
@@ -1609,19 +1622,6 @@ __metadata:
   checksum: 1814927a45004d36dde6707eaf17552a546769bc79a6421be2c16ce77d238158dfe5de30910b78ec30d95135cc1c59ea73ee22d2ca170f8b9753f84da34c427f
   languageName: node
   linkType: hard
-
-"stream-range@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "stream-range@workspace:."
-  dependencies:
-    "@playwright/test": "npm:^1.49.1"
-    "@types/node": "npm:^22.10.2"
-    happy-dom: "npm:^20.8.9"
-    typescript: "npm:^5.7.2"
-    vite: "npm:^6.0.3"
-    vitest: "npm:^2.1.8"
-  languageName: unknown
-  linkType: soft
 
 "tar@npm:^7.5.4":
   version: 7.5.13
