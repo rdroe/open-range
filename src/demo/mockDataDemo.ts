@@ -63,6 +63,22 @@ function barColorsForSpan(length: number): { fill: string; stroke: string } {
   }
 }
 
+/** Same interval (start/end) → same lane across pans; order of elements in the array does not matter. */
+const MOCK_BAR_LANE_COUNT = 4
+const MOCK_BAR_LANE_TOP_PX = 22
+const MOCK_BAR_LANE_STEP_PX = 13
+const MOCK_BAR_HEIGHT_PX = 11
+
+function stableLaneIndexForInterval(start: number, end: number): number {
+  const key = `${start.toFixed(12)},${end.toFixed(12)}`
+  let h = 2166136261 >>> 0
+  for (let i = 0; i < key.length; i++) {
+    h ^= key.charCodeAt(i)
+    h = Math.imul(h, 16777619) >>> 0
+  }
+  return (h >>> 0) % MOCK_BAR_LANE_COUNT
+}
+
 export const mountMockDataDemo = () => {
   if (typeof document === 'undefined') return
 
@@ -208,8 +224,31 @@ export const mountMockDataDemo = () => {
   `
   mockStrip.appendChild(mockZonesLayer)
 
+  const mockLanesLayer = document.createElement('div')
+  mockLanesLayer.style.cssText = `
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+  `
+  for (let i = 1; i < MOCK_BAR_LANE_COUNT; i++) {
+    const sep = document.createElement('div')
+    const y = MOCK_BAR_LANE_TOP_PX + i * MOCK_BAR_LANE_STEP_PX - 1
+    sep.style.cssText = `
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: ${y}px;
+      height: 1px;
+      background: rgba(63, 63, 70, 0.55);
+    `
+    mockLanesLayer.appendChild(sep)
+  }
+  mockStrip.appendChild(mockLanesLayer)
+
   const mockStripLabel = document.createElement('div')
-  mockStripLabel.textContent = 'Mock intervals — hue by length (opacity by zone)'
+  mockStripLabel.textContent =
+    'Mock intervals — hue by length (opacity by zone) · each interval keeps a fixed lane while you pan'
   mockStripLabel.style.cssText = `
     position: absolute;
     top: 6px;
@@ -671,7 +710,6 @@ export const mountMockDataDemo = () => {
 
     if (!Number.isFinite(rangeWidth) || rangeWidth <= 0) return
 
-    let barIndex = 0
     let nL = 0
     let nC = 0
     let nR = 0
@@ -690,14 +728,14 @@ export const mountMockDataDemo = () => {
       const left = ((el.start - rangeStart) / rangeWidth) * 100
       const w = ((el.end - el.start) / rangeWidth) * 100
       const bar = document.createElement('div')
-      const y = 22 + (barIndex % 4) * 13
-      barIndex++
+      const lane = stableLaneIndexForInterval(el.start, el.end)
+      const y = MOCK_BAR_LANE_TOP_PX + lane * MOCK_BAR_LANE_STEP_PX
       bar.style.cssText = `
         position: absolute;
         left: ${left}%;
         width: ${Math.max(w, 0.12)}%;
         top: ${y}px;
-        height: 11px;
+        height: ${MOCK_BAR_HEIGHT_PX}px;
         box-sizing: border-box;
         background: ${fill};
         border: 1px solid ${stroke};
