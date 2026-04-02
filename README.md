@@ -195,7 +195,47 @@ Returns **`unsubscribe`**.
 
 ### Dimensional range (convenience)
 
-Exported from `open-range/dimensionalRange` (also re-exported from the package root):
+Exported from `open-range/dimensionalRange` (also re-exported from the package root).
+
+```ts
+import {
+  registerDimensionalRange,
+  updateDimensionalRange,
+  updateDimensionalRangeParams,
+} from 'open-range/dimensionalRange'
+import { accessConversionStore } from 'open-range/readableRange'
+
+const rangeId = 'axis'
+
+const dimensionalRange = {
+  zoom: 1,
+  unitSize: 0.1,
+  leftPrefetchFactor: 2,
+  rightPrefetchFactor: 2,
+  unitsPerViewportWidth: 10,
+}
+
+registerDimensionalRange<number>(rangeId, {
+  initialInput: 0,
+  dimensionalRange,
+  inputToNumber: (n) => n,
+  numberToInput: (n) => n,
+})
+
+// Move the center (same zoom / viewport settings)
+updateDimensionalRange(rangeId, 12.5)
+
+// Change zoom or prefetch factors; keeps current input and the same input↔number mappers
+updateDimensionalRangeParams(rangeId, {
+  ...dimensionalRange,
+  zoom: 2,
+})
+
+const store = accessConversionStore<number>(rangeId)
+console.log(store.viewableRange, store.nextLeftRange, store.nextRightRange)
+```
+
+Viewable width is `(unitSize * unitsPerViewportWidth) / zoom`; left and right prefetch bands extend by `leftPrefetchFactor` and `rightPrefetchFactor` multiples of that width. Use **`subscribeToRangeConvertedEndLoading`** (or **`subscribeToDimensionalRangeConvertedEndLoading`**) if you need to run code after the first async slice load completes.
 
 | Symbol | Description |
 |--------|-------------|
