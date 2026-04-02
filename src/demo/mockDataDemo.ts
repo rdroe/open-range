@@ -436,19 +436,32 @@ export const mountMockDataDemo = () => {
   const { wrap: wZoom, valueEl: zoomValue } = kv('zoom')
   const { wrap: wUnit, valueEl: unitSizeValue } = kv('unitSize')
   const { wrap: wUpvw, valueEl: upvwValue } = kv('units / viewport')
+  const clampZoom = (z: number) => (z < 0.1 ? 0.1 : z)
   const zoomRow = document.createElement('div')
-  zoomRow.style.cssText = 'display: flex; flex-wrap: wrap; margin-bottom: 4px;'
+  zoomRow.style.cssText =
+    'display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; align-items: center;'
   zoomRow.appendChild(
-    makeButton('Zoom −', 'muted', () => {
-      dimensionalRange.zoom = dimensionalRange.zoom - 0.5
-      if (dimensionalRange.zoom <= 0) dimensionalRange.zoom = 0.5
-      void resyncMockAndRender()
+    makeButton('Zoom −1', 'muted', () => {
+      dimensionalRange.zoom = clampZoom(dimensionalRange.zoom - 1)
+      void applyDensityAndRender()
     })
   )
   zoomRow.appendChild(
-    makeButton('Zoom +', 'muted', () => {
-      dimensionalRange.zoom = dimensionalRange.zoom + 0.5
-      void resyncMockAndRender()
+    makeButton('Zoom +1', 'muted', () => {
+      dimensionalRange.zoom = dimensionalRange.zoom + 1
+      void applyDensityAndRender()
+    })
+  )
+  zoomRow.appendChild(
+    makeButton('Zoom −0.1', 'muted', () => {
+      dimensionalRange.zoom = clampZoom(dimensionalRange.zoom - 0.1)
+      void applyDensityAndRender()
+    })
+  )
+  zoomRow.appendChild(
+    makeButton('Zoom +0.1', 'muted', () => {
+      dimensionalRange.zoom = dimensionalRange.zoom + 0.1
+      void applyDensityAndRender()
     })
   )
   const unitRow = document.createElement('div')
@@ -457,13 +470,13 @@ export const mountMockDataDemo = () => {
     makeButton('Unit −', 'muted', () => {
       dimensionalRange.unitSize = dimensionalRange.unitSize - 0.05
       if (dimensionalRange.unitSize <= 0.01) dimensionalRange.unitSize = 0.01
-      void resyncMockAndRender()
+      void applyDensityAndRender()
     })
   )
   unitRow.appendChild(
     makeButton('Unit +', 'muted', () => {
       dimensionalRange.unitSize = dimensionalRange.unitSize + 0.05
-      void resyncMockAndRender()
+      void applyDensityAndRender()
     })
   )
   const upvwRow = document.createElement('div')
@@ -472,13 +485,13 @@ export const mountMockDataDemo = () => {
     makeButton('UPVW −', 'muted', () => {
       dimensionalRange.unitsPerViewportWidth = dimensionalRange.unitsPerViewportWidth - 1
       if (dimensionalRange.unitsPerViewportWidth <= 1) dimensionalRange.unitsPerViewportWidth = 1
-      void resyncMockAndRender()
+      void applyDensityAndRender()
     })
   )
   upvwRow.appendChild(
     makeButton('UPVW +', 'muted', () => {
       dimensionalRange.unitsPerViewportWidth = dimensionalRange.unitsPerViewportWidth + 1
-      void resyncMockAndRender()
+      void applyDensityAndRender()
     })
   )
   colDims.appendChild(wZoom)
@@ -544,7 +557,7 @@ export const mountMockDataDemo = () => {
 
   const hint = document.createElement('div')
   hint.textContent =
-    'One browser session (localStorage id + IndexedDB intervals), shared across tabs until clear. Changing density re-locks parameters for that session. Panning reuses stored intervals.'
+    'One browser session (localStorage id + IndexedDB intervals), shared across tabs until clear. Zoom and density sliders update the view and future gap generation without wiping stored intervals; only “Clear all mock data” resets session data.'
   hint.style.cssText = 'margin-top: 14px; color: #71717a; font-size: 12px; line-height: 1.5;'
 
   root.appendChild(summaryTitle)
@@ -561,6 +574,7 @@ export const mountMockDataDemo = () => {
   if (mount) mount.appendChild(layout)
   else document.body.appendChild(layout)
 
+  /** Only for “Clear all mock data”: new session id + wipe stored intervals. */
   const resyncMockSession = async () => {
     updateDimensionalRangeParams(rangeId, dimensionalRange)
     await mock.clearSession(sessionId)
@@ -571,8 +585,14 @@ export const mountMockDataDemo = () => {
     })
   }
 
-  const resyncMockAndRender = async () => {
-    await resyncMockSession()
+  /** Zoom / unit size / UPVW: keep IndexedDB intervals; update open-range geometry + mock generation params. */
+  const applyDensityAndRender = async () => {
+    updateDimensionalRangeParams(rangeId, dimensionalRange)
+    await mock.updateLockedParameters(sessionId, {
+      zoom: dimensionalRange.zoom,
+      unitSize: dimensionalRange.unitSize,
+      unitsPerViewportWidth: dimensionalRange.unitsPerViewportWidth,
+    })
     await render()
   }
 

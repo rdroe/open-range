@@ -78,6 +78,22 @@ describe('createMockData (in-memory persistence)', () => {
     expect(locked).toEqual(baseParams)
   })
 
+  it('updateLockedParameters changes locked params without clearing stored elements', async () => {
+    const api = createMockData()
+    await api.ensureSession('s-dens', baseParams)
+    const els = await api.getElementsForRange('s-dens', [0, 30])
+    const newParams: RangeParameters = { zoom: 2, unitSize: 0.2, unitsPerViewportWidth: 8 }
+    await api.updateLockedParameters('s-dens', newParams)
+    expect(await api.getLockedParameters('s-dens')).toEqual(newParams)
+    const again = await api.getElementsForRange('s-dens', [0, 30])
+    expect(again).toEqual(els)
+  })
+
+  it('updateLockedParameters throws when session is unknown', async () => {
+    const api = createMockData()
+    await expect(api.updateLockedParameters('nope', baseParams)).rejects.toThrow(/unknown session/)
+  })
+
   it('uses different random layout for different gaps (same width, different position)', async () => {
     const api = createMockData()
     await api.ensureSession('s', baseParams)

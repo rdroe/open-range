@@ -34,6 +34,11 @@ export type MockDataCreator = {
   /** First call per session locks parameters; later calls ignore new parameters. */
   ensureSession(sessionId: string, rangeParameters: RangeParameters): Promise<void>
   /**
+   * Updates `lockedParams` for an existing session without removing stored intervals.
+   * Use when the UI’s density (zoom, unit size, etc.) changes but you want to keep materialized mock data.
+   */
+  updateLockedParameters(sessionId: string, rangeParameters: RangeParameters): Promise<void>
+  /**
    * Overlapping elements for the requested span; generates only for gaps not yet materialized.
    * Repeated calls with the same range return the same element objects (reference-stable).
    */
@@ -287,6 +292,17 @@ export function createMockData(options?: CreateMockDataOptions): MockDataCreator
         materialized: [],
       }
       await persist(sessionId, initial)
+    },
+
+    async updateLockedParameters(sessionId: string, rangeParameters: RangeParameters) {
+      const state = await ensureLoaded(sessionId)
+      if (!state) {
+        throw new Error(
+          `Mock data: unknown session "${sessionId}". Call ensureSession first with range parameters.`,
+        )
+      }
+      state.lockedParams = { ...rangeParameters }
+      await persist(sessionId, state)
     },
 
     async getElementsForRange(sessionId: string, range: [number, number]) {
