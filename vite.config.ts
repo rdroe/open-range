@@ -22,11 +22,19 @@ export default defineConfig(({ mode }) => {
     }
   }
 
+  const rootDir = fileURLToPath(new URL('.', import.meta.url))
+
   return {
-    root: fileURLToPath(new URL('.', import.meta.url)),
+    root: rootDir,
     build: {
       outDir: 'site',
       emptyOutDir: true,
+      rollupOptions: {
+        input: {
+          main: fileURLToPath(new URL('./index.html', import.meta.url)),
+          mockDataDemo: fileURLToPath(new URL('./mock-data-demo.html', import.meta.url)),
+        },
+      },
     },
     server: {
       port: 5173,

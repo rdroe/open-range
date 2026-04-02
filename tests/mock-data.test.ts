@@ -6,6 +6,7 @@ import {
   type MockPersistenceAdapter,
   type RangeParameters,
 } from '../src/lib/mockData/create-mock-data'
+import { generateBrowserSessionName } from '../src/lib/mockData/browserSessionId'
 
 const baseParams: RangeParameters = {
   zoom: 1,
@@ -77,6 +78,16 @@ describe('createMockData (in-memory persistence)', () => {
     expect(locked).toEqual(baseParams)
   })
 
+  it('uses different random layout for different gaps (same width, different position)', async () => {
+    const api = createMockData()
+    await api.ensureSession('s', baseParams)
+    const a = await api.getElementsForRange('s', [0, 8])
+    const b = await api.getElementsForRange('s', [1000, 1008])
+    expect(a.length).toBeGreaterThan(0)
+    expect(b.length).toBeGreaterThan(0)
+    expect(a[0]).not.toEqual(b[0])
+  })
+
   it('keeps separate parameters per session id', async () => {
     const api = createMockData()
     const p1: RangeParameters = { zoom: 1, unitSize: 0.1, unitsPerViewportWidth: 10 }
@@ -92,8 +103,8 @@ describe('createMockData (in-memory persistence)', () => {
     await api.ensureSession('s1', baseParams)
     const a = await api.getElementsForRange('s1', [0, 40])
     const b = await api.getElementsForRange('s1', [0, 40])
-    expect(b.map((e) => e.id)).toEqual(a.map((e) => e.id))
     expect(b).toEqual(a)
+    if (a.length > 0) expect(b[0]).toBe(a[0])
   })
 
   it('does not duplicate stored elements when extending the requested range', async () => {
@@ -102,13 +113,35 @@ describe('createMockData (in-memory persistence)', () => {
     const first = await api.getElementsForRange('s1', [0, 30])
     const second = await api.getElementsForRange('s1', [20, 50])
     const whole = await api.getElementsForRange('s1', [0, 50])
-    const idsFromSteps = new Set([...first, ...second].map((e) => e.id))
-    expect(idsFromSteps.size).toBe(whole.length)
+    const keysFromSteps = new Set([...first, ...second].map((e) => `${e.start},${e.end}`))
+    expect(keysFromSteps.size).toBe(whole.length)
   })
 
   it('throws when getElementsForRange is used before ensureSession', async () => {
     const api = createMockData()
     await expect(api.getElementsForRange('unknown', [0, 10])).rejects.toThrow(/unknown session/)
+  })
+
+  it('getSessionSummary reflects stored elements and materialized intervals', async () => {
+    const api = createMockData()
+    const sid = generateBrowserSessionName()
+    await api.ensureSession(sid, baseParams)
+    await api.getElementsForRange(sid, [0, 25])
+    const sum = await api.getSessionSummary(sid)
+    expect(sum).not.toBeNull()
+    expect(sum!.totalElements).toBeGreaterThan(0)
+    expect(sum!.materialized.length).toBeGreaterThan(0)
+    expect(sum!.lockedParams).toEqual(baseParams)
+  })
+
+  it('clearAll removes every session', async () => {
+    const api = createMockData()
+    await api.ensureSession('a', baseParams)
+    await api.ensureSession('b', baseParams)
+    await api.getElementsForRange('a', [0, 10])
+    await api.clearAll()
+    await expect(api.getElementsForRange('a', [0, 10])).rejects.toThrow(/unknown session/)
+    await expect(api.getElementsForRange('b', [0, 10])).rejects.toThrow(/unknown session/)
   })
 })
 
@@ -138,7 +171,6 @@ describe('createMockData (IndexedDB persistence)', () => {
     expect(locked).toEqual(baseParams)
 
     const after = await api2.getElementsForRange('persisted', [0, 35])
-    expect(after.map((e) => e.id)).toEqual(before.map((e) => e.id))
     expect(after).toEqual(before)
   })
 
@@ -165,7 +197,21 @@ describe('createMockData (IndexedDB persistence)', () => {
 
     const raw = await persistence.getItem(`open-range:mockRange:gap`)
     expect(raw).toBeTruthy()
-    const parsed = JSON.parse(raw!) as { elements: { id: string }[] }
+    const parsed = JSON.parse(raw!) as { elements: { start: number; end: number }[] }
     expect(parsed.elements.length).toBe(secondPass.length)
+  })
+
+  it('clearAll wipes persisted sessions and index for a new creator instance', async () => {
+    const persistence = createIndexedDbPersistence(dbName)
+    const prefix = 'open-range:mockRange:'
+    const api1 = createMockData({ persistence, persistenceKeyPrefix: prefix })
+    await api1.ensureSession('x', baseParams)
+    await api1.getElementsForRange('x', [0, 20])
+    await api1.clearAll()
+
+    const api2 = createMockData({ persistence, persistenceKeyPrefix: prefix })
+    await expect(api2.getElementsForRange('x', [0, 10])).rejects.toThrow(/unknown session/)
+    expect(await persistence.getItem(`${prefix}x`)).toBeNull()
+    expect(await persistence.getItem(`${prefix}__sessions`)).toBeNull()
   })
 })
