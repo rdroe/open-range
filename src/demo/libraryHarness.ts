@@ -161,9 +161,6 @@ export async function mountLibraryHarness(): Promise<void> {
     },
     false
   )
-  subscribeToTicksLoadingComplete(TICK, () => {
-    syncTicks(tickCount, tickFirst)
-  })
   registerTicks(
     TICK,
     async ([start, end]: [number, number]) => {
@@ -177,6 +174,9 @@ export async function mountLibraryHarness(): Promise<void> {
     },
     true
   )
+  subscribeToTicksLoadingComplete(TICK, () => {
+    syncTicks(tickCount, tickFirst)
+  })
 
   btnBasic.addEventListener('click', () => {
     updateRangeInputInner(BASIC, store[BASIC].input + 10)

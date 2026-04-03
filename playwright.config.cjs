@@ -4,6 +4,15 @@ const { defineConfig, devices } = require('@playwright/test')
 const E2E_PORT = process.env.PLAYWRIGHT_E2E_PORT || '5320'
 const baseURL = `http://127.0.0.1:${E2E_PORT}`
 
+/** Milliseconds between Playwright operations; unset = full speed (default for headless). Set via `test:e2e:headed:slow` or `PLAYWRIGHT_SLOW_MO`. */
+const slowMoRaw = process.env.PLAYWRIGHT_SLOW_MO
+const slowMoParsed =
+  slowMoRaw !== undefined && slowMoRaw !== ''
+    ? parseInt(slowMoRaw, 10)
+    : NaN
+const slowMo =
+  Number.isFinite(slowMoParsed) && slowMoParsed >= 0 ? slowMoParsed : undefined
+
 module.exports = defineConfig({
   testDir: './e2e',
   fullyParallel: true,
@@ -14,6 +23,9 @@ module.exports = defineConfig({
   use: {
     baseURL,
     trace: 'on-first-retry',
+    ...(slowMo !== undefined
+      ? { launchOptions: { slowMo } }
+      : {}),
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {

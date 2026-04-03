@@ -264,8 +264,21 @@ export const unregisterTicks = (rangeId: string) => {
   isLoading[rangeId] = undefined
 }
 
+/** Lets subscribe run before registerTicks without throwing; registerTicks still required for tick data. */
+function ensureTicksLoadingCompleteSink(rangeId: string) {
+  if (!emitters[rangeId]) {
+    emitters[rangeId] = {}
+  }
+  if (!emitters[rangeId][TICKS_LOADING_COMPLETE_EVENT]) {
+    emitters[rangeId][TICKS_LOADING_COMPLETE_EVENT] = new EventTarget()
+  }
+  if (!cleanup[rangeId]) {
+    cleanup[rangeId] = []
+  }
+}
 
 export const subscribeToTicksLoadingComplete = (rangeId: string, callback: (ticks: (typeof ticksStore[string])['ticks']) => void) => {
+  ensureTicksLoadingCompleteSink(rangeId)
   function handler() {
     callback(ticksStore[rangeId].ticks)
   }
@@ -289,17 +302,17 @@ const onInitOnceFns: {
 } = {}
 
 export const subscribeToTicksInitialization = (rangeId: string, callback: (ticks: (typeof ticksStore[string])['ticks']) => void) => {
-
+  ensureTicksLoadingCompleteSink(rangeId)
 
   const cleanupFn = () => {
     emitters[rangeId][TICKS_LOADING_COMPLETE_EVENT].removeEventListener(TICKS_LOADING_COMPLETE_EVENT, thisHandler)
-  } 
+  }
   const thisHandler = () => {
     callback(ticksStore[rangeId].ticks)
     cleanupFn()
   }
 
   emitters[rangeId][TICKS_LOADING_COMPLETE_EVENT].addEventListener(TICKS_LOADING_COMPLETE_EVENT, thisHandler)
-  
+
   return cleanupFn
 }

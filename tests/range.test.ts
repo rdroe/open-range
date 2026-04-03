@@ -458,6 +458,46 @@ describe('ticks', () => {
     unregisterTicks(rangeId)
   })
 
+  it('subscribeToTicksLoadingComplete may run before registerTicks (either order)', async () => {
+    const rangeId = 't-ticks-sub-before-reg'
+    await registerReadableRange<number>(
+      rangeId,
+      160,
+      {
+        getViewableRange: async (input: number) => [input - 5, input + 5],
+        getNextLeftRange: async (input: number) => [input - 20, input - 5],
+        getNextRightRange: async (input: number) => [input + 5, input + 20],
+        inputToNumber: (input: number) => input,
+        numberToInput: (n: number) => n,
+      },
+      false
+    )
+    let complete = false
+    let init = false
+    subscribeToTicksLoadingComplete(rangeId, () => {
+      complete = true
+    })
+    subscribeToTicksInitialization(rangeId, () => {
+      init = true
+    })
+    registerTicks(
+      rangeId,
+      async ([start, end]: [number, number]) => {
+        const ticks: { value: number; label: string }[] = []
+        for (let i = start; i <= end; i += 1) {
+          ticks.push({ value: i, label: i.toString() })
+        }
+        return ticks
+      },
+      true
+    )
+    await delay(300)
+    expect(complete).toBe(true)
+    expect(init).toBe(true)
+    expect(ticksStore[rangeId]?.ticks?.viewableRange?.length).toBeGreaterThan(0)
+    unregisterTicks(rangeId)
+  })
+
   it('updateTicksMethod changes tick density after range update', async () => {
     const rangeId = 't-ticks-update'
     await registerReadableRange<number>(
