@@ -13,6 +13,8 @@ import {
   subscribeToTicksLoadingComplete,
   ticksStore,
 } from '../lib/ticks'
+import type { DimensionalDemoOptions } from './dimensionalDemoOptions'
+import { HOME_DEMO_DEFAULT_CENTER_INPUT } from './homeDemoConstants'
 
 const rangeId = 'dimensionalRangeNumeric'
 const dimensionalRange: DimensionalRange = {
@@ -25,15 +27,19 @@ const dimensionalRange: DimensionalRange = {
 const convertAlphadex = (input: number) => input
 const numberToAlphadex = (input: number) => input
 
-export const createDimensionalExampleNumeric = () => {
+export const createDimensionalExampleNumeric = (options: DimensionalDemoOptions = {}) => {
+  const { layout = 'fixed', parent = null, initialCenterInput } = options
   if (typeof document === 'undefined') return
 
-  const initLetterRaw = Math.random() * 20
-  const initLetter = Math.random() < 0.1 ? initLetterRaw : 0 - initLetterRaw
+  const initLetter = initialCenterInput ?? HOME_DEMO_DEFAULT_CENTER_INPUT
 
-  let currentScroll: number | null = null
-
-  const getCurrentLetter = () => currentScroll || initLetter
+  const getCurrentLetter = (): number => {
+    try {
+      return accessConversionStore(rangeId).input as number
+    } catch {
+      return initLetter
+    }
+  }
 
   const getViewableRangeWidth = (): number => {
     try {
@@ -91,7 +97,25 @@ export const createDimensionalExampleNumeric = () => {
 
   const root = document.createElement('div')
   root.id = 'dimensional-example-numeric'
-  root.style.cssText = `
+  const flow = layout === 'flow'
+  root.style.cssText = flow
+    ? `
+    position: relative;
+    width: 100%;
+    max-width: 420px;
+    max-height: min(70vh, 560px);
+    overflow-y: auto;
+    background-color: #1e1e1e;
+    color: #d4d4d4;
+    padding: 15px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    border: 1px solid #3f3f46;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+    box-sizing: border-box;
+  `
+    : `
     position: fixed;
     top: 0;
     right: 400px;
@@ -139,16 +163,15 @@ export const createDimensionalExampleNumeric = () => {
 
   const letterLabel = makeLabel('letter')
   const letterValue = makeValue()
+  letterValue.setAttribute('data-testid', 'demo-numeric-center-input')
 
   const letterButtonsRow = document.createElement('div')
   const prevBtn = makeButton('prev', () => {
     const prevLetter = decrementUtil(getCurrentLetter())
-    currentScroll = prevLetter
     updateDimensionalRange(rangeId, prevLetter)
   })
   const nextBtn = makeButton('next', () => {
     const nextLetter = incrementUtil(getCurrentLetter())
-    currentScroll = nextLetter
     updateDimensionalRange(rangeId, nextLetter)
   })
 
@@ -240,7 +263,20 @@ export const createDimensionalExampleNumeric = () => {
 
   const tickmarkContainer = document.createElement('div')
   tickmarkContainer.id = 'tickmark-container'
-  tickmarkContainer.style.cssText = `
+  tickmarkContainer.style.cssText = flow
+    ? `
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    height: 120px;
+    margin-top: 12px;
+    background-color: #2a2a2a;
+    border: 2px solid #555;
+    border-radius: 8px;
+    padding: 0;
+    box-sizing: border-box;
+  `
+    : `
     position: fixed;
     bottom: 20px;
     right: 50px;
@@ -364,8 +400,13 @@ export const createDimensionalExampleNumeric = () => {
     renderTickmarks()
   }
 
-  document.body.appendChild(root)
-  document.body.appendChild(tickmarkContainer)
+  const mountTarget = parent ?? document.body
+  mountTarget.appendChild(root)
+  if (flow) {
+    root.appendChild(tickmarkContainer)
+  } else {
+    mountTarget.appendChild(tickmarkContainer)
+  }
   subscribeToRangeInitialization(rangeId, () => {
     registerTicks(
       rangeId,

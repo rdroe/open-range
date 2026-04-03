@@ -1,0 +1,124 @@
+/* Home page: all demos in one scrollable layout */
+
+#demo-home-root {
+  min-height: 100vh;
+  box-sizing: border-box;
+  background: #09090b;
+  color: #e4e4e7;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+}
+
+#demo-home-header {
+  position: sticky;
+  top: 0;
+  z-index: 30000;
+  padding: 12px 20px 14px;
+  background: linear-gradient(180deg, #18181b 0%, #141416 96%);
+  border-bottom: 1px solid #3f3f46;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+}
+
+#demo-home-header h1 {
+  margin: 0 0 10px;
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #fafafa;
+}
+
+.demo-home-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  background: #27272a;
+  border: 1px solid #3f3f46;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.demo-home-controls label {
+  color: #d4d4d8;
+  font-weight: 500;
+}
+
+.demo-home-controls input[type='number'] {
+  width: 7rem;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid #52525b;
+  background: #18181b;
+  color: #fafafa;
+  font: inherit;
+}
+
+.demo-home-controls button {
+  font: inherit;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid #52525b;
+  background: #3f3f46;
+  color: #fafafa;
+}
+
+.demo-home-controls button:hover {
+  filter: brightness(1.08);
+}
+
+#demo-home-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: center;
+  font-size: 13px;
+}
+
+#demo-home-nav a {
+  color: #93c5fd;
+  text-decoration: none;
+}
+
+#demo-home-nav a:hover {
+  text-decoration: underline;
+}
+
+#demo-home-nav .demo-home-muted {
+  color: #71717a;
+  font-size: 12px;
+}
+
+.demo-home-section {
+  padding: 20px 16px 32px;
+  max-width: 1680px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.demo-home-section h2 {
+  margin: 0 0 14px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #a1a1aa;
+}
+
+#dimensional-examples-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: 20px;
+  align-items: start;
+}
+
+#mount-alphadex,
+#mount-numeric {
+  min-width: 0;
+}
+
+#section-mock-data {
+  border-bottom: 1px solid #27272a;
+}

@@ -33,6 +33,7 @@ export default defineConfig(({ mode }) => {
         input: {
           main: fileURLToPath(new URL('./index.html', import.meta.url)),
           mockDataDemo: fileURLToPath(new URL('./mock-data-demo.html', import.meta.url)),
+          libraryHarness: fileURLToPath(new URL('./library-harness.html', import.meta.url)),
         },
       },
     },

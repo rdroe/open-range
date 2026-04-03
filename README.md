@@ -264,6 +264,13 @@ Exported from `open-range/basicRange`. **`registerRange`** / **`store`** / **`em
 
 ---
 
+## Local demo
+
+- **`yarn dev`** — Vite on port **5173**. **`/`** loads **all** interactive demos on one page: mock axis (IndexedDB + tick grid + fine pan), plus **Alphadex** and **numeric** dimensional examples in a responsive grid. The header has a **Center input** field (default **4**) and **Apply** to push the same numeric center through all three axes. **`/mock-data-demo.html`** is the mock-only page (includes a link back to home); it uses the same default center **4** (no random start).
+- **`yarn test`** — Vitest. **`yarn test:e2e`** — Playwright (starts Vite on port 5320); run **`yarn playwright install chromium`** once if browsers are missing.
+
+---
+
 ## License
 
 MIT

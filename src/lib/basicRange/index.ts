@@ -165,8 +165,7 @@ export function inputAfterChangedListener(
   if (getConversionEmitters && getConversionEventNames) {
     const conversionEmitters = getConversionEmitters(rangeId)
     const conversionEventNames = getConversionEventNames(rangeId)
-    
-    emitters[rangeId].loadingRefCount++
+
     conversionEmitters.convertedNextLeftRangeLoading.dispatchEvent(
       new CustomEvent(conversionEventNames.convertedNextLeftRangeLoading, {
         detail: { rangeId: rangeId, nextLeftRangeLoading: true },

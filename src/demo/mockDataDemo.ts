@@ -17,6 +17,7 @@ import {
 import { clearBrowserSessionIdFromStorage, getOrCreateBrowserSessionId } from '../lib/mockData/browserSessionId'
 import { createMockData } from '../lib/mockData/create-mock-data'
 import { createIndexedDbKeyValue } from '../lib/mockData/indexedDbKeyValue'
+import { HOME_DEMO_DEFAULT_CENTER_INPUT } from './homeDemoConstants'
 
 const rangeId = 'mockDataDimensionalDemo'
 
@@ -85,13 +86,26 @@ function stableLaneIndexForInterval(start: number, end: number): number {
   return (h >>> 0) % MOCK_BAR_LANE_COUNT
 }
 
-export const mountMockDataDemo = () => {
+export type MountMockDataDemoOptions = {
+  /** When true (home page), skip standalone nav / full-page chrome. */
+  embedded?: boolean
+  /** Initial numeric center (default {@link HOME_DEMO_DEFAULT_CENTER_INPUT}). */
+  initialCenterInput?: number
+}
+
+export const mountMockDataDemo = (options: MountMockDataDemoOptions = {}) => {
+  const { embedded = false, initialCenterInput } = options
   if (typeof document === 'undefined') return
 
   let sessionId = getOrCreateBrowserSessionId()
-  const defaultInitialInput = 0
-  let currentScroll: number | null = null
-  const getCurrentLetter = () => currentScroll ?? defaultInitialInput
+  const defaultInitialInput = initialCenterInput ?? HOME_DEMO_DEFAULT_CENTER_INPUT
+  const getCurrentLetter = (): number => {
+    try {
+      return accessConversionStore(rangeId).input as number
+    } catch {
+      return defaultInitialInput
+    }
+  }
 
   const getViewableRangeWidth = (): number => {
     try {
@@ -150,7 +164,7 @@ export const mountMockDataDemo = () => {
 
   const layout = document.createElement('div')
   layout.style.cssText = `
-    min-height: 100vh;
+    min-height: ${embedded ? 'auto' : '100vh'};
     box-sizing: border-box;
     background: #0d0d0f;
     color: #e4e4e7;
@@ -165,7 +179,7 @@ export const mountMockDataDemo = () => {
     'flex-shrink: 0; padding: 16px 24px 8px; border-bottom: 1px solid #27272a;'
   const back = document.createElement('a')
   back.href = '/index.html'
-  back.textContent = '← Original range demos'
+  back.textContent = '← All demos (home)'
   back.style.cssText = 'color: #93c5fd; text-decoration: none; font-size: 14px;'
   back.addEventListener('mouseenter', () => {
     back.style.textDecoration = 'underline'
@@ -385,19 +399,18 @@ export const mountMockDataDemo = () => {
 
   colPan.appendChild(sectionTitle('Pan & input'))
   const { wrap: wInput, valueEl: letterValue } = kv('input (center)')
+  letterValue.setAttribute('data-testid', 'mock-demo-center-input')
   const letterButtonsRow = document.createElement('div')
   letterButtonsRow.style.cssText = 'display: flex; flex-wrap: wrap; margin-bottom: 8px;'
   letterButtonsRow.appendChild(
     makeButton('← Prev', 'muted', () => {
       const prevLetter = decrementUtil(getCurrentLetter())
-      currentScroll = prevLetter
       updateDimensionalRange(rangeId, prevLetter)
     })
   )
   letterButtonsRow.appendChild(
     makeButton('Next →', 'muted', () => {
       const nextLetter = incrementUtil(getCurrentLetter())
-      currentScroll = nextLetter
       updateDimensionalRange(rangeId, nextLetter)
     })
   )
@@ -406,7 +419,6 @@ export const mountMockDataDemo = () => {
   const bumpByViewportFraction = (viewportFraction: number) => {
     const w = getViewableRangeWidth()
     const next = getCurrentLetter() + viewportFraction * w
-    currentScroll = next
     updateDimensionalRange(rangeId, next)
   }
 
@@ -454,7 +466,9 @@ export const mountMockDataDemo = () => {
 
   colDims.appendChild(sectionTitle('Range density'))
   const { wrap: wZoom, valueEl: zoomValue } = kv('zoom')
+  zoomValue.setAttribute('data-testid', 'mock-demo-zoom')
   const { wrap: wUnit, valueEl: unitSizeValue } = kv('unitSize')
+  unitSizeValue.setAttribute('data-testid', 'mock-demo-unit-size')
   const { wrap: wUpvw, valueEl: upvwValue } = kv('units / viewport')
   const clampZoom = (z: number) => (z < 0.1 ? 0.1 : z)
   const zoomRow = document.createElement('div')
@@ -522,6 +536,7 @@ export const mountMockDataDemo = () => {
     'font-size: 11px; color: #71717a; line-height: 1.45; margin-bottom: 8px; max-width: 42ch;'
 
   const { wrap: wTicksAcross, valueEl: ticksAcrossValueEl } = kv('ticks across view')
+  ticksAcrossValueEl.setAttribute('data-testid', 'mock-demo-ticks-across')
   const { wrap: wTickStep, valueEl: tickStepValueEl } = kv('tick step (data units)')
   const { wrap: wTicksPerUnit, valueEl: ticksPerUnitValueEl } = kv('ticks / data unit (≈)')
 
@@ -572,6 +587,7 @@ export const mountMockDataDemo = () => {
 
   colRead.appendChild(sectionTitle('Computed ranges'))
   const { wrap: wV, valueEl: viewableValue } = kv('viewable')
+  viewableValue.setAttribute('data-testid', 'mock-demo-viewable')
   const { wrap: wL, valueEl: nextLeftValue } = kv('next left')
   const { wrap: wR, valueEl: nextRightValue } = kv('next right')
   const { wrap: wTicks, valueEl: currentTicksValue } = kv('ticks (view)')
@@ -635,7 +651,9 @@ export const mountMockDataDemo = () => {
 
   controlsShell.appendChild(root)
 
-  layout.appendChild(nav)
+  if (!embedded) {
+    layout.appendChild(nav)
+  }
   layout.appendChild(visualSection)
   layout.appendChild(controlsShell)
 
@@ -990,5 +1008,3 @@ export const mountMockDataDemo = () => {
     void render()
   })
 }
-
-mountMockDataDemo()

@@ -10,6 +10,8 @@ import {
   updateDimensionalRangeParams,
 } from '../lib/dimensionalRange'
 import { convertAlphadex, numberToAlphadex } from './alphadex'
+import type { DimensionalDemoOptions } from './dimensionalDemoOptions'
+import { HOME_DEMO_DEFAULT_CENTER_INPUT } from './homeDemoConstants'
 
 const rangeId = 'dimensionalRange'
 const dimensionalRange: DimensionalRange = {
@@ -20,15 +22,19 @@ const dimensionalRange: DimensionalRange = {
   rightPrefetchFactor: 2,
 }
 
-export const createDimensionalExampleAlphadex = () => {
+export const createDimensionalExampleAlphadex = (options: DimensionalDemoOptions = {}) => {
+  const { layout = 'fixed', parent = null, initialCenterInput } = options
   if (typeof document === 'undefined') return
 
-  const initLetterRaw = numberToAlphadex(Math.random() * 20)
-  const initLetter = Math.random() < 0.1 ? initLetterRaw : `-${initLetterRaw}`
+  const initLetter = numberToAlphadex(initialCenterInput ?? HOME_DEMO_DEFAULT_CENTER_INPUT)
 
-  let currentScroll: string | null = null
-
-  const getCurrentLetter = () => currentScroll || initLetter
+  const getCurrentLetter = (): string => {
+    try {
+      return accessConversionStore(rangeId).input as string
+    } catch {
+      return initLetter
+    }
+  }
 
   const incrementUtil = (letter: string) => {
     const n = convertAlphadex(letter)
@@ -64,7 +70,25 @@ export const createDimensionalExampleAlphadex = () => {
 
   const root = document.createElement('div')
   root.id = 'dimensional-example-alphadex'
-  root.style.cssText = `
+  const flow = layout === 'flow'
+  root.style.cssText = flow
+    ? `
+    position: relative;
+    width: 100%;
+    max-width: 420px;
+    max-height: min(70vh, 560px);
+    overflow-y: auto;
+    background-color: #1e1e1e;
+    color: #d4d4d4;
+    padding: 15px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    border: 1px solid #3f3f46;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+    box-sizing: border-box;
+  `
+    : `
     position: fixed;
     top: 0;
     right: 0;
@@ -79,7 +103,7 @@ export const createDimensionalExampleAlphadex = () => {
     z-index: 10000;
     border-left: 2px solid #333;
     box-shadow: -2px 0 10px rgba(0,0,0,0.5);
-    box-sizing: border-box; 
+    box-sizing: border-box;
   `
 
   const makeLabel = (text: string) => {
@@ -112,16 +136,15 @@ export const createDimensionalExampleAlphadex = () => {
 
   const letterLabel = makeLabel('letter')
   const letterValue = makeValue()
+  letterValue.setAttribute('data-testid', 'demo-alphadex-center-input')
 
   const letterButtonsRow = document.createElement('div')
   const prevBtn = makeButton('prev', () => {
     const prevLetter = decrementUtil(getCurrentLetter())
-    currentScroll = prevLetter
     updateDimensionalRange(rangeId, prevLetter)
   })
   const nextBtn = makeButton('next', () => {
     const nextLetter = incrementUtil(getCurrentLetter())
-    currentScroll = nextLetter
     updateDimensionalRange(rangeId, nextLetter)
   })
 
@@ -231,7 +254,7 @@ export const createDimensionalExampleAlphadex = () => {
     upvwValue.textContent = dimensionalRange.unitsPerViewportWidth.toString()
   }
 
-  document.body.appendChild(root)
+  ;(parent ?? document.body).appendChild(root)
   subscribeToRangeInitialization(rangeId, render)
   registerDimensionalRange(rangeId, {
     initialInput: initLetter,
