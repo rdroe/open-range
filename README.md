@@ -1,8 +1,8 @@
 # open-range
 
-Async range tracking for interactive axes and sliders: a **center input**, a **viewable** numeric window, and **prefetch** windows to the left and right. The library resolves those slices with your async functions, exposes them in a typed **conversion store** (`string` | `number` | `Date` input), and notifies subscribers via **`EventTarget`**. Optional **ticks** load for each slice whenever the underlying ranges update.
+Async range tracking for interactive axes and sliders: a **center input**, a **viewable** numeric window, and **prefetch** windows to the left and right. Your async functions define those slices; the library keeps a typed **conversion store** (`string` | `number` | `Date`), and notifies subscribers via **`EventTarget`**. Optional **ticks** load per slice whenever the underlying ranges update.
 
-The main integration surface is **`readableRange`** (typed store + conversion subscriptions) and **`ticks`** (tick lists per slice + loading lifecycle).
+The main integration surface is **`readableRange`** (typed store + conversion subscriptions) and **`ticks`** (tick lists per slice + loading lifecycle). For zoom/viewport-style axes without hand-written geometry, see **`dimensionalRange`**.
 
 ## Install
 
@@ -12,7 +12,7 @@ npm install open-range
 yarn add open-range
 ```
 
-Subpath imports (`open-range/readableRange`, `open-range/ticks`, etc.) resolve to the same build; use whichever improves readability in your project.
+Subpath imports (`open-range/readableRange`, `open-range/ticks`, etc.) resolve to the same build; use whichever reads best in your project.
 
 ## Example: readable range + ticks
 
@@ -32,7 +32,7 @@ import {
 
 const rangeId = 'timeline'
 
-// 1. Subscribe to “range is ready” before registering (initialization runs after first load cycle).
+// 1. Subscribe to “range is ready” before registering (initialization runs after the first load cycle).
 const offInit = subscribeToRangeInitialization(rangeId, () => {
   registerTicks(
     rangeId,
@@ -48,13 +48,13 @@ const offInit = subscribeToRangeInitialization(rangeId, () => {
     console.log('ticks updated', ticks.viewableRange.length, 'in view')
   })
 
-  // Fires once, the first time all tick sets have finished loading.
+  // Fires once the first time all tick sets have finished loading.
   subscribeToTicksInitialization(rangeId, (ticks) => {
     console.log('initial tick sets', ticks)
   })
 })
 
-// 2. Register the range (async): supply geometry as functions of numeric input.
+// 2. Register the range (async): geometry as functions of numeric input.
 await registerReadableRange<number>(
   rangeId,
   100,
@@ -79,7 +79,7 @@ updateRange(rangeId, 120)
 offInit()
 ```
 
-For numeric axes with zoom and viewport width, you can use **`registerDimensionalRange`** from `open-range/dimensionalRange` instead of hand-writing `getViewableRange` / `getNextLeftRange` / `getNextRightRange` (see [Dimensional range](#dimensional-range-convenience)).
+For numeric axes driven by zoom and viewport width, **`registerDimensionalRange`** (`open-range/dimensionalRange`) can replace hand-written `getViewableRange` / `getNextLeftRange` / `getNextRightRange` (see [Dimensional range](#dimensional-range-convenience)).
 
 ---
 
@@ -91,7 +91,7 @@ For numeric axes with zoom and viewport width, you can use **`registerDimensiona
 | **Numeric pipeline** | Internally, everything is driven by a **number** (`basicRange`). Your `getViewableRange` / `getNextLeftRange` / `getNextRightRange` take that number. |
 | **Conversion store** | **`readableRange`** maps numeric results to your UI type (`StringOrNumberOrDate`) via `inputToNumber` / `numberToInput`. |
 | **Loading** | When the input changes, viewable and prefetch ranges reload. **Conversion loading** and **per-slice loading** flags track async work; subscription helpers fire on start/end transitions. |
-| **Ticks** | After registration, **`registerTicks`** hooks tick generation to the readable loading pipeline. **`ticksStore[rangeId]`** holds `viewableRange`, `nextLeftRange`, and `nextRightRange` tick arrays (numeric `value` in the store). |
+| **Ticks** | After **`registerTicks`**, tick generation hooks into the readable loading pipeline. **`ticksStore[rangeId]`** holds `viewableRange`, `nextLeftRange`, and `nextRightRange` tick arrays (numeric `value` in the store). |
 
 ---
 
@@ -114,7 +114,7 @@ For numeric axes with zoom and viewport width, you can use **`registerDimensiona
 
 | Function | Description |
 |----------|-------------|
-| `registerReadableRange<InputType>(rangeId, initialInput, { getViewableRange, getNextLeftRange, getNextRightRange, inputToNumber, numberToInput }, isReregistration?)` | **Async.** Registers (or re-registers) a readable range. `get*` functions receive **numbers** and return `[start, end]` tuples. First registration requires `initialInput`; re-registration uses `initialInput: null` and keeps the current store input (see tests / implementation). Returns when initial store and listeners are wired. |
+| `registerReadableRange<InputType>(rangeId, initialInput, { getViewableRange, getNextLeftRange, getNextRightRange, inputToNumber, numberToInput }, isReregistration?)` | **Async.** Registers (or re-registers) a readable range. `get*` functions receive **numbers** and return `[start, end]` tuples. First registration requires `initialInput`; re-registration uses `initialInput: null` and keeps the current store input (see tests / implementation). Resolves when initial store and listeners are wired. |
 | `updateRange<InputType>(rangeId, input)` | Sets a new **converted** input and triggers the same async refresh chain as a user interaction. |
 | `unregisterReadableRange(rangeId)` | Tears down readable listeners and cleanup for that id. |
 
@@ -236,22 +236,22 @@ const store = accessConversionStore<number>(rangeId)
 console.log(store.viewableRange, store.nextLeftRange, store.nextRightRange)
 ```
 
-Viewable width is `(unitSize * unitsPerViewportWidth) / zoom`; left and right prefetch bands extend by `leftPrefetchFactor` and `rightPrefetchFactor` multiples of that width. Use **`subscribeToRangeConvertedEndLoading`** (or **`subscribeToDimensionalRangeConvertedEndLoading`**) if you need to run code after the first async slice load completes.
+Viewable width is `(unitSize * unitsPerViewportWidth) / zoom`. Left and right prefetch bands extend by `leftPrefetchFactor` and `rightPrefetchFactor` multiples of that width. Use **`subscribeToRangeConvertedEndLoading`** (or **`subscribeToDimensionalRangeConvertedEndLoading`**) if you need to run code after the first async slice load completes.
 
 | Symbol | Description |
 |--------|-------------|
 | `DimensionalRange` | `{ zoom, unitSize, leftPrefetchFactor, rightPrefetchFactor, unitsPerViewportWidth }`. |
-| `registerDimensionalRange(rangeId, { initialInput, dimensionalRange, inputToNumber, numberToInput })` | Registers a readable range using built-in viewport math (viewable width \(`unitSize * unitsPerViewportWidth / zoom`\), prefetch bands). Throws if already registered. |
+| `registerDimensionalRange(rangeId, { initialInput, dimensionalRange, inputToNumber, numberToInput })` | Registers a readable range using built-in viewport math. Throws if a readable range is already registered for that `rangeId`. |
 | `updateDimensionalRange` | Same as `updateRange`. |
 | `updateDimensionalRangeParams(rangeId, dimensionalRange)` | Re-registers with new geometry; keeps current input and conversion fns. |
-| `unregisterDimensionalRange(rangeId)` | Delegates to `unregisterReadableRange`. |
+| `unregisterDimensionalRange(rangeId)` | Throws if no dimensional/readable range exists; otherwise calls `unregisterReadableRange`. |
 | `subscribeToDimensionalRangeConvertedEndLoading` | Alias for `subscribeToRangeConvertedEndLoading`. |
 
 ---
 
 ### Basic range (numeric core)
 
-Exported from `open-range/basicRange`. **`registerRange`** / **`store`** / **`emitters`** operate on **numbers** only. Typical apps use **`readableRange`** instead; basic range is the foundation and exposes:
+Exported from `open-range/basicRange`. **`registerRange`** / **`store`** / **`emitters`** operate on **numbers** only. Most apps use **`readableRange`**; basic range is the foundation and exposes:
 
 | Function | Description |
 |----------|-------------|
@@ -260,14 +260,42 @@ Exported from `open-range/basicRange`. **`registerRange`** / **`store`** / **`em
 | `subscribeToRangeStartLoading`, `subscribeToRangeEndLoading` | Basic loading channel on `emitters[rangeId].loading`. |
 | `getEventNames2(rangeId)` | Event name strings for basic emitters. |
 
-`readableRange` wires these to `conversionStore` and `conversionEmitters` automatically when you call `registerReadableRange`.
+`readableRange` wires these to `conversionStore` and `conversionEmitters` when you call `registerReadableRange`.
 
 ---
 
-## Local demo
+## Development & testing
 
-- **`yarn dev`** — Vite on port **5173**. **`/`** loads **all** interactive demos on one page: mock axis (IndexedDB + tick grid + fine pan), plus **Alphadex** and **numeric** dimensional examples in a responsive grid. The header has a **Center input** field (default **4**) and **Apply** to push the same numeric center through all three axes. **`/mock-data-demo.html`** is the mock-only page (includes a link back to home); it uses the same default center **4** (no random start).
-- **`yarn test`** — Vitest. **`yarn test:e2e`** — Playwright (starts Vite on port 5320); run **`yarn playwright install chromium`** once if browsers are missing.
+This repo is a **Vite** + **TypeScript** package; `yarn dev` runs the demo app (default port **5173**).
+
+### Demos (local)
+
+| Command / URL | What it is |
+|---------------|------------|
+| **`yarn dev`** | Dev server at **http://localhost:5173**. **`/`** loads all interactive demos: mock axis (IndexedDB + tick grid + fine pan), **Alphadex**, and **numeric** dimensional examples. The header has **Center input** (default **4**) and **Apply** to push that center through all axes. |
+| **`/mock-data-demo.html`** | Mock-only page (link back to home); same default center **4** (no random start). |
+| **`/library-harness.html`** | Minimal page wiring **basicRange**, **readableRange**, and **ticks** for quick manual checks (also covered by Playwright). |
+
+Production build entries include `index.html`, `mock-data-demo.html`, and `library-harness.html` (`yarn build:demo`).
+
+### Unit tests & coverage
+
+| Script | Description |
+|--------|-------------|
+| **`yarn test`** | Run **Vitest** once (`tests/**/*.test.ts`). |
+| **`yarn test:watch`** | Vitest watch mode. |
+| **`yarn test:coverage`** | Vitest with **v8** coverage for `src/lib/**/*.ts`. Prints a table in the terminal; also writes **`coverage/index.html`** — open that file in a browser for per-file detail. Coverage thresholds (statements/lines) are enforced for the library. |
+
+### End-to-end (Playwright)
+
+| Script | Description |
+|--------|-------------|
+| **`yarn test:e2e`** | Playwright against the dev server on port **5320** (see `playwright.config.cjs`). |
+| **`yarn playwright install chromium`** | One-time browser install if tests fail with a missing-browser error. |
+| **`yarn dev:e2e`** | Vite on **5320** — use if you want to hit the same port as Playwright’s `webServer` while debugging. |
+| **`yarn test:e2e:ui`** | Playwright UI mode. |
+| **`yarn test:e2e:headed`** | Headed browser. |
+| **`yarn test:e2e:headed:slow`** | Headed, one worker, **`slowMo`** for easier observation (override with `PLAYWRIGHT_SLOW_MO`). |
 
 ---
 

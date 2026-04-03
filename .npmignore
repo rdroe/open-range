@@ -1,27 +1,32 @@
-# Belt-and-suspenders: keep dev-only and Yarn PnP artifacts out of the tarball.
-# Primary allowlist is package.json "files" (dist). Expand cautiously.
+# Publishing model: package.json "files" is the allowlist — currently only `dist/`
+# (built JS + declarations for the public API in src/lib/index.ts and subpath types).
+# This file excludes everything else so the tarball stays minimal even if "files" changes.
+#
+# npm still includes README and package.json by default for the registry listing.
 
-# Source, tests, and demos
+# Source, demos, and app shells (not part of the published library)
 src/
 tests/
 e2e/
 site/
+index.html
+mock-data-demo.html
+library-harness.html
 
-# Build / tooling (dist is still included via "files")
+# Tooling & config
 *.config.*
 tsconfig*.json
-vite.config.ts
-vitest.config.ts
-playwright.config.cjs
-index.html
-
-# Yarn Berry / PnP (never publish these — consumers use their own install)
+.yarnrc.yml
 .yarn/
 .pnp.cjs
 .pnp.loader.mjs
-.yarnrc.yml
+yarn.lock
 
-# Logs and caches
+# CI / editor (if present)
+.github/
+.cursor/
+
+# Logs, caches, artifacts
 *.log
 coverage/
 test-results/
