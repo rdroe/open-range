@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { registerRange, store } from 'open-range/basicRange'
 import { registerDimensionalRange } from 'open-range/dimensionalRange'
 import { registerReadableRange } from 'open-range/readableRange'
-import { registerTicks } from 'open-range/ticks'
+import { alignedTickStops, registerTicks } from 'open-range/ticks'
 import * as root from 'open-range'
 
 /**
@@ -15,6 +15,7 @@ describe('package exports (consumer-style subpaths)', () => {
     expect(root.registerReadableRange).toBe(registerReadableRange)
     expect(root.registerDimensionalRange).toBe(registerDimensionalRange)
     expect(root.registerTicks).toBe(registerTicks)
+    expect(root.alignedTickStops).toBe(alignedTickStops)
     expect(root.store).toBe(store)
   })
 })

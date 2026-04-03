@@ -7,6 +7,7 @@ import {
   updateDimensionalRangeParams,
 } from '../lib/dimensionalRange'
 import {
+  alignedTickStops,
   registerTicks,
   subscribeToTicksInitialization,
   subscribeToTicksLoadingComplete,
@@ -81,16 +82,9 @@ export const createDimensionalExampleNumeric = () => {
     if (!Number.isFinite(start) || !Number.isFinite(end)) return ticks
     const step = Math.max(dimensionalRange.unitSize, 0.1)
     if (step <= 0) return ticks
-    if (start <= end) {
-      for (let v = start; v <= end + 1e-9; v += step) {
-        const rounded = Math.round(v * 10) / 10
-        ticks.push({ value: rounded, label: rounded.toString() })
-      }
-    } else {
-      for (let v = start; v >= end - 1e-9; v -= step) {
-        const rounded = Math.round(v * 10) / 10
-        ticks.push({ value: rounded, label: rounded.toString() })
-      }
+    for (const v of alignedTickStops(start, end, step, 0)) {
+      const rounded = Math.round(v * 10) / 10
+      ticks.push({ value: rounded, label: rounded.toString() })
     }
     return ticks
   }

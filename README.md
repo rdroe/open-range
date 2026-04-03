@@ -181,6 +181,7 @@ Returns **`unsubscribe`**.
 | Function | Description |
 |----------|-------------|
 | `registerTicks(rangeId, createDefaultTicks, runImmediately?)` | **`createDefaultTicks([start, end])`** returns `Promise<TicksArray<number>>`. When readable conversion loading indicates a slice has updated, the library fetches ticks for that slice’s numeric range. **`runImmediately`** (default `false`): if `true`, runs tick loading once for all three slices right away. Calling `registerTicks` again for the same id **re-registers** (see `unregisterTicks` behavior inside implementation). |
+| `alignedTickStops(start, end, step, origin?, maxStops?)` | Helper for **phase-stable** ticks: returns numeric stops on the grid **`origin + n·step`** (default **`origin = 0`**) that fall in `[min(start,end), max(start,end)]`. Use inside `createDefaultTicks` so labels do not slide when panning (avoid stepping from `start` with a fixed increment). |
 | `updateTicksMethod(rangeId, createDefaultTicks)` | Replaces the tick factory for an existing registration (e.g. change step size). |
 | `unregisterTicks(rangeId)` | Removes listeners and clears `ticksStore[rangeId]`. |
 

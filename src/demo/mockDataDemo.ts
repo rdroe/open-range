@@ -8,6 +8,7 @@ import {
   updateDimensionalRangeParams,
 } from '../lib/dimensionalRange'
 import {
+  alignedTickStops,
   registerTicks,
   subscribeToTicksInitialization,
   subscribeToTicksLoadingComplete,
@@ -29,6 +30,11 @@ const dimensionalRange: DimensionalRange = {
   leftPrefetchFactor: 2,
   rightPrefetchFactor: 2,
 }
+
+/** Target tick count across the viewable span; spacing ≈ viewableWidth ÷ this (shared step for all zones). */
+let ticksAcrossViewable = 12
+const MIN_TICKS_ACROSS = 3
+const MAX_TICKS_ACROSS = 120
 
 function normalizePair(pair: [number, number]): [number, number] {
   const [a, b] = pair
@@ -112,22 +118,32 @@ export const mountMockDataDemo = () => {
 
   type RangePair = [number, number]
 
+  /** Data-domain step from “ticks across view”: same step everywhere so ruler lines up across prefetch. */
+  const getTickStepFromPolicy = (): number => {
+    const w = getViewableRangeWidth()
+    if (!Number.isFinite(w) || w <= 0) return 0.1
+    return Math.max(w / Math.max(1, ticksAcrossViewable), Number.EPSILON * 1000)
+  }
+
+  /** Print tick values with at most 2 decimal places (ruler + readouts). */
+  const formatTickPrint = (v: number): string => {
+    if (!Number.isFinite(v)) return String(v)
+    const rounded = Math.round(v * 100) / 100
+    return String(Number(rounded.toFixed(2)))
+  }
+
   const ticksInRange = (range: RangePair): TicksArray<number> => {
     const [start, end] = range
     const ticks: TicksArray<number> = []
     if (!Number.isFinite(start) || !Number.isFinite(end)) return ticks
-    const step = Math.max(dimensionalRange.unitSize, 0.1)
+    const step = getTickStepFromPolicy()
     if (step <= 0) return ticks
-    if (start <= end) {
-      for (let v = start; v <= end + 1e-9; v += step) {
-        const rounded = Math.round(v * 10) / 10
-        ticks.push({ value: rounded, label: rounded.toString() })
-      }
-    } else {
-      for (let v = start; v >= end - 1e-9; v -= step) {
-        const rounded = Math.round(v * 10) / 10
-        ticks.push({ value: rounded, label: rounded.toString() })
-      }
+    const labelFor = (v: number) => {
+      const rounded = Math.round(v * 100) / 100
+      return { value: rounded, label: formatTickPrint(rounded) }
+    }
+    for (const v of alignedTickStops(start, end, step, 0)) {
+      ticks.push(labelFor(v))
     }
     return ticks
   }
@@ -386,43 +402,47 @@ export const mountMockDataDemo = () => {
     })
   )
 
-  const bumpInput = (delta: number) => {
-    const next = getCurrentLetter() + delta
+  /** Pan by a fraction of the current viewable width (Prev/Next use ±1×). */
+  const bumpByViewportFraction = (viewportFraction: number) => {
+    const w = getViewableRangeWidth()
+    const next = getCurrentLetter() + viewportFraction * w
     currentScroll = next
     updateDimensionalRange(rangeId, next)
   }
 
   const finePanLabel = document.createElement('div')
-  finePanLabel.textContent = 'Fine pan (fixed step)'
+  finePanLabel.textContent =
+    'Fine pan (fraction × viewport width — Prev/Next = 1× viewport)'
   finePanLabel.style.cssText =
-    'font-size: 11px; color: #71717a; margin: 10px 0 6px; font-weight: 500;'
+    'font-size: 11px; color: #71717a; margin: 10px 0 6px; font-weight: 500; line-height: 1.35;'
 
-  const makeFineStepRow = (step: number, label: string) => {
+  const makeFineStepRow = (fraction: number, label: string) => {
     const row = document.createElement('div')
     row.style.cssText =
       'display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 6px;'
     const lab = document.createElement('span')
     lab.textContent = `±${label}`
     lab.style.cssText =
-      'font-size: 11px; color: #71717a; font-variant-numeric: tabular-nums; min-width: 2.75rem;'
+      'font-size: 11px; color: #71717a; font-variant-numeric: tabular-nums; min-width: 3.25rem;'
     row.appendChild(lab)
     row.appendChild(
       makeButton(`−${label}`, 'muted', () => {
-        bumpInput(-step)
+        bumpByViewportFraction(-fraction)
       })
     )
     row.appendChild(
       makeButton(`+${label}`, 'muted', () => {
-        bumpInput(step)
+        bumpByViewportFraction(fraction)
       })
     )
     return row
   }
 
+  /** Fractions of one viewable span (same scale family as Prev/Next at 1×). */
   const fineSteps: [number, string][] = [
-    [0.5, '0.5'],
-    [0.25, '0.25'],
-    [0.1, '0.1'],
+    [0.5, '0.5×'],
+    [0.25, '0.25×'],
+    [0.1, '0.1×'],
   ]
 
   colPan.appendChild(wInput)
@@ -494,12 +514,61 @@ export const mountMockDataDemo = () => {
       void applyDensityAndRender()
     })
   )
+
+  const tickHint = document.createElement('div')
+  tickHint.textContent =
+    'Spacing ≈ viewable width ÷ count. Same step for left / view / right so marks align. (Related: “units / viewport” sets how wide the view is in data units.)'
+  tickHint.style.cssText =
+    'font-size: 11px; color: #71717a; line-height: 1.45; margin-bottom: 8px; max-width: 42ch;'
+
+  const { wrap: wTicksAcross, valueEl: ticksAcrossValueEl } = kv('ticks across view')
+  const { wrap: wTickStep, valueEl: tickStepValueEl } = kv('tick step (data units)')
+  const { wrap: wTicksPerUnit, valueEl: ticksPerUnitValueEl } = kv('ticks / data unit (≈)')
+
+  const adjustTicksAcross = (delta: number) => {
+    ticksAcrossViewable = Math.min(
+      MAX_TICKS_ACROSS,
+      Math.max(MIN_TICKS_ACROSS, ticksAcrossViewable + delta)
+    )
+    void applyDensityAndRender()
+  }
+
+  const tickGridRow = document.createElement('div')
+  tickGridRow.style.cssText =
+    'display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; align-items: center;'
+  tickGridRow.appendChild(
+    makeButton('−10', 'muted', () => {
+      adjustTicksAcross(-10)
+    })
+  )
+  tickGridRow.appendChild(
+    makeButton('−1', 'muted', () => {
+      adjustTicksAcross(-1)
+    })
+  )
+  tickGridRow.appendChild(
+    makeButton('+1', 'muted', () => {
+      adjustTicksAcross(1)
+    })
+  )
+  tickGridRow.appendChild(
+    makeButton('+10', 'muted', () => {
+      adjustTicksAcross(10)
+    })
+  )
+
   colDims.appendChild(wZoom)
   colDims.appendChild(zoomRow)
   colDims.appendChild(wUnit)
   colDims.appendChild(unitRow)
   colDims.appendChild(wUpvw)
   colDims.appendChild(upvwRow)
+  colDims.appendChild(sectionTitle('Tick grid'))
+  colDims.appendChild(tickHint)
+  colDims.appendChild(wTicksAcross)
+  colDims.appendChild(wTickStep)
+  colDims.appendChild(wTicksPerUnit)
+  colDims.appendChild(tickGridRow)
 
   colRead.appendChild(sectionTitle('Computed ranges'))
   const { wrap: wV, valueEl: viewableValue } = kv('viewable')
@@ -789,8 +858,9 @@ export const mountMockDataDemo = () => {
   const formatTicksLine = (ticks: TicksArray<number>): string => {
     return ticks
       .map((t) => {
-        const same = t.label === String(t.value) || t.label === `${t.value}`
-        const text = same ? String(t.value) : `${t.value} (${t.label})`
+        const vPrint = formatTickPrint(t.value as number)
+        const same = t.label === vPrint || t.label === String(t.value)
+        const text = same ? vPrint : `${vPrint} (${t.label})`
         return text
       })
       .join(', ')
@@ -835,6 +905,23 @@ export const mountMockDataDemo = () => {
     zoomValue.textContent = dimensionalRange.zoom.toString()
     unitSizeValue.textContent = dimensionalRange.unitSize.toString()
     upvwValue.textContent = dimensionalRange.unitsPerViewportWidth.toString()
+    ticksAcrossValueEl.textContent = `${ticksAcrossViewable} (clamp ${MIN_TICKS_ACROSS}–${MAX_TICKS_ACROSS})`
+    {
+      const st = getTickStepFromPolicy()
+      tickStepValueEl.textContent = Number.isFinite(st)
+        ? st >= 1
+          ? st.toFixed(4).replace(/\.?0+$/, '')
+          : st.toPrecision(5)
+        : '—'
+      const w = getViewableRangeWidth()
+      const tpu =
+        Number.isFinite(st) && st > 0 && Number.isFinite(w) && w > 0 ? 1 / st : NaN
+      ticksPerUnitValueEl.textContent = Number.isFinite(tpu)
+        ? tpu >= 10 || tpu <= 0.1
+          ? tpu.toPrecision(4)
+          : tpu.toFixed(4).replace(/\.?0+$/, '')
+        : '—'
+    }
 
     const L = normalizePair(rangeStore.nextLeftRange as [number, number])
     const V = normalizePair(rangeStore.viewableRange as [number, number])

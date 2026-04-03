@@ -11,6 +11,48 @@ export type TicksArray<InputType extends StringOrNumberOrDate> = Array<{
   dimensions?: { width: number; height: number }
 }>
 
+/**
+ * Axis values on the grid **origin + n·step** (n integer) that lie in the closed interval between `start` and `end`.
+ * Use when building tick lists so panning does not change tick **phase** (vs iterating from `min(start,end)` with a fixed step, which shifts labels as the window moves).
+ *
+ * @param origin — Global anchor for the grid (default **0**). Same step + origin ⇒ same tick values wherever they intersect the window.
+ */
+export function alignedTickStops(
+  start: number,
+  end: number,
+  step: number,
+  origin = 0,
+  maxStops = 10_000
+): number[] {
+  if (
+    !Number.isFinite(start) ||
+    !Number.isFinite(end) ||
+    !Number.isFinite(step) ||
+    step <= 0 ||
+    !Number.isFinite(origin)
+  ) {
+    return []
+  }
+  const lo = Math.min(start, end)
+  const hi = Math.max(start, end)
+  if (!Number.isFinite(lo) || !Number.isFinite(hi) || hi < lo) {
+    return []
+  }
+
+  const tol = 1e-9 * Math.max(1, Math.abs(step), Math.abs(origin), Math.abs(lo), Math.abs(hi))
+  const nMin = Math.ceil((lo - origin) / step - tol)
+  const nMax = Math.floor((hi - origin) / step + tol)
+
+  const out: number[] = []
+  for (let n = nMin; n <= nMax && out.length < maxStops; n++) {
+    const v = origin + n * step
+    if (v >= lo - tol && v <= hi + tol) {
+      out.push(v)
+    }
+  }
+  return out
+}
+
 type Emitters = {
   [rangeId: string]: Record<string, EventTarget>
 }
