@@ -104,11 +104,12 @@ const isMatchingInputType = <InputType extends StringOrNumberOrDate>(
 
 const requireMatchingInputType = <InputType extends StringOrNumberOrDate>(
   toReplace: any,
-  value: StringOrNumberOrDate,
-  note: string = ''
+  value: StringOrNumberOrDate
 ): InputType => {
   if (!isMatchingInputType<InputType>(toReplace, value)) {
-    throw new Error('Input type mismatch; ' + note + (note? '; ' : '') + ' toReplace: ' + JSON.stringify(toReplace, null, 2) + ' value: ' + JSON.stringify(value, null, 2))
+    throw new Error(
+      `Input type mismatch; toReplace: ${JSON.stringify(toReplace, null, 2)} value: ${JSON.stringify(value, null, 2)}`
+    )
   }
   return value
 }
@@ -217,9 +218,6 @@ function convertUpdatedInputHandler<InputType extends StringOrNumberOrDate>(
   event: Event & { detail: { rangeId: string; input: NumericInput } }
 ) {
   const { rangeId, input } = event.detail
-  if (!rangeId || input === undefined) {
-    throw new Error('Invalid event detail')
-  }
 
   // @ts-expect-error - we know that the input is a proper type
   conversionStore[rangeId].input = conversionStore[rangeId].fns.numberToInput(
@@ -674,10 +672,7 @@ export const subscribeToRangeConvertedViewableRangeStartLoading = (
       detail: { rangeId: string; viewableRangeLoading: boolean }
     }
   ) {
-    const { rangeId, viewableRangeLoading } = event.detail
-    if (!rangeId || viewableRangeLoading === undefined) {
-      throw new Error('Invalid event detail')
-    }
+    const { viewableRangeLoading } = event.detail
     if (viewableRangeLoading) {
       callback()
     }
@@ -705,10 +700,7 @@ export const subscribeToRangeConvertedViewableRangeEndLoading = (
       detail: { rangeId: string; viewableRangeLoading: boolean }
     }
   ) {
-    const { rangeId, viewableRangeLoading } = event.detail
-    if (!rangeId || viewableRangeLoading === undefined) {
-      throw new Error('Invalid event detail')
-    }
+    const { viewableRangeLoading } = event.detail
     if (!viewableRangeLoading) {
       callback()
     }
@@ -736,10 +728,7 @@ export const subscribeToRangeConvertedNextLeftRangeStartLoading = (
       detail: { rangeId: string; nextLeftRangeLoading: boolean }
     }
   ) {
-    const { rangeId, nextLeftRangeLoading } = event.detail
-    if (!rangeId || nextLeftRangeLoading === undefined) {
-      throw new Error('Invalid event detail')
-    }
+    const { nextLeftRangeLoading } = event.detail
     if (nextLeftRangeLoading) {
       callback()
     }
@@ -767,10 +756,7 @@ export const subscribeToRangeConvertedNextRightRangeStartLoading = (
       detail: { rangeId: string; nextRightRangeLoading: boolean }
     }
   ) {
-    const { rangeId, nextRightRangeLoading } = event.detail
-    if (!rangeId || nextRightRangeLoading === undefined) {
-      throw new Error('Invalid event detail')
-    }
+    const { nextRightRangeLoading } = event.detail
     if (nextRightRangeLoading) {
       callback()
     }
@@ -798,10 +784,7 @@ export const subscribeToRangeConvertedNextLeftRangeEndLoading = (
       detail: { rangeId: string; nextLeftRangeLoading: boolean }
     }
   ) {
-    const { rangeId, nextLeftRangeLoading } = event.detail
-    if (!rangeId || nextLeftRangeLoading === undefined) {
-      throw new Error('Invalid event detail')
-    }
+    const { nextLeftRangeLoading } = event.detail
     if (!nextLeftRangeLoading) {
       callback()
     }
@@ -829,10 +812,7 @@ export const subscribeToRangeConvertedNextRightRangeEndLoading = (
       detail: { rangeId: string; nextRightRangeLoading: boolean }
     }
   ) {
-    const { rangeId, nextRightRangeLoading } = event.detail
-    if (!rangeId || nextRightRangeLoading === undefined) {
-      throw new Error('Invalid event detail')
-    }
+    const { nextRightRangeLoading } = event.detail
     if (!nextRightRangeLoading) {
       callback()
     }

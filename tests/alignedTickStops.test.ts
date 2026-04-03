@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { alignedTickStops } from '../src/lib/ticks'
 
 describe('alignedTickStops', () => {
@@ -25,5 +25,16 @@ describe('alignedTickStops', () => {
   it('returns empty for invalid step or range', () => {
     expect(alignedTickStops(0, 1, 0, 0)).toEqual([])
     expect(alignedTickStops(NaN, 1, 1, 0)).toEqual([])
+  })
+
+  it('returns empty when min/max imply an inverted interval (defensive)', () => {
+    const minSpy = vi.spyOn(Math, 'min').mockReturnValueOnce(5)
+    const maxSpy = vi.spyOn(Math, 'max').mockReturnValueOnce(3)
+    try {
+      expect(alignedTickStops(1, 2, 1, 0)).toEqual([])
+    } finally {
+      minSpy.mockRestore()
+      maxSpy.mockRestore()
+    }
   })
 })

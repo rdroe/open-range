@@ -9,6 +9,18 @@ export default defineConfig({
     environment: 'happy-dom',
     include: ['tests/**/*.test.ts'],
     testTimeout: 10_000,
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html'],
+      reportsDirectory: './coverage',
+      include: ['src/lib/**/*.ts'],
+      thresholds: {
+        statements: 100,
+        branches: 100,
+        lines: 100,
+        functions: 95,
+      },
+    },
   },
   resolve: {
     alias: {

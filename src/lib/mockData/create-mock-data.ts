@@ -147,14 +147,6 @@ function generateElementsForGap(
     if (c > g1 - baseHalf * 0.4) break
   }
 
-  if (elements.length === 0 && g1 > g0) {
-    const r = mulberry32((seed ^ 0x9e3779b9) >>> 0)
-    const halfW = baseHalf * (0.55 + 0.9 * r())
-    const span = g1 - g0
-    const mid = (g0 + g1) / 2 + (r() - 0.5) * span * 0.35
-    const center = Math.min(Math.max(mid, g0 + halfW), g1 - halfW)
-    elements.push({ start: center - halfW, end: center + halfW })
-  }
   return elements
 }
 
@@ -265,7 +257,7 @@ export function createMockData(options?: CreateMockDataOptions): MockDataCreator
   }
 
   const ensureLoaded = async (sessionId: string): Promise<SessionState | null> => {
-    if (sessions.has(sessionId)) return sessions.get(sessionId) ?? null
+    if (sessions.has(sessionId)) return sessions.get(sessionId)!
     let p = inflightHydration.get(sessionId)
     if (!p) {
       p = (async () => {

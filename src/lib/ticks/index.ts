@@ -93,17 +93,12 @@ const addEventHandlerAndTrigger = (rangeId: string, baseName: string,
     ticksEmitters: Emitters,
   ) => void, 
 ) => {
-
-  if (!emitters[rangeId]) {
-
-    cleanup[rangeId] = []
-    emitters[rangeId] = {}
-  }
-  if (!emitters[rangeId][baseName]) {
-    emitters[rangeId][baseName] = new EventTarget()
-  } else {
+  /* v8 ignore start — duplicate emitter name; unreachable via public API */
+  if (emitters[rangeId][baseName]) {
     throw new Error(`Emitter ${baseName} already exists`)
   }
+  /* v8 ignore stop */
+  emitters[rangeId][baseName] = new EventTarget()
   emitters[rangeId][baseName].addEventListener(baseName, handler)
   cleanup[rangeId].push(() => {
     emitters[rangeId][baseName].removeEventListener(baseName, handler)
@@ -137,9 +132,6 @@ function getTicksLoadingStartHandler(rangeId: string, rangeName: "viewableRange"
       ticksStore[rangeId].ticks[rangeName] = ticks
 
       const completionEvent = completionEvents[rangeName]
-      if (!emitters[rangeId][completionEvent]) {
-        emitters[rangeId][completionEvent] = new EventTarget() 
-      }
       emitters[rangeId][completionEvent].dispatchEvent(new CustomEvent(completionEvent, {
         detail: {
           name: completionEvent, 

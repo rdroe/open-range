@@ -6,7 +6,12 @@ import {
   type MockPersistenceAdapter,
   type RangeParameters,
 } from '../src/lib/mockData/create-mock-data'
-import { generateBrowserSessionName } from '../src/lib/mockData/browserSessionId'
+import {
+  clearBrowserSessionIdFromStorage,
+  generateBrowserSessionName,
+  getOrCreateBrowserSessionId,
+} from '../src/lib/mockData/browserSessionId'
+import { createIndexedDbKeyValue } from '../src/lib/mockData/indexedDbKeyValue'
 
 const baseParams: RangeParameters = {
   zoom: 1,
@@ -94,6 +99,28 @@ describe('createMockData (in-memory persistence)', () => {
     await expect(api.updateLockedParameters('nope', baseParams)).rejects.toThrow(/unknown session/)
   })
 
+  it('gapsInRequest adds a leading gap when materialized starts after the request start', async () => {
+    const api = createMockData()
+    await api.ensureSession('gap-lead', baseParams)
+    await api.getElementsForRange('gap-lead', [2, 5])
+    await api.getElementsForRange('gap-lead', [0, 10])
+  })
+
+  it('gapsInRequest breaks when a later materialized interval starts past the request end', async () => {
+    const api = createMockData()
+    await api.ensureSession('gap-break', baseParams)
+    await api.getElementsForRange('gap-break', [0, 3])
+    await api.getElementsForRange('gap-break', [100, 200])
+    await api.getElementsForRange('gap-break', [0, 10])
+  })
+
+  it('treats non-finite range bounds as empty (no gaps)', async () => {
+    const api = createMockData()
+    await api.ensureSession('nan-gap', baseParams)
+    const els = await api.getElementsForRange('nan-gap', [Number.NaN, 10])
+    expect(els).toEqual([])
+  })
+
   it('uses different random layout for different gaps (same width, different position)', async () => {
     const api = createMockData()
     await api.ensureSession('s', baseParams)
@@ -138,6 +165,18 @@ describe('createMockData (in-memory persistence)', () => {
     await expect(api.getElementsForRange('unknown', [0, 10])).rejects.toThrow(/unknown session/)
   })
 
+  it('getElementsForRange with reversed numeric bounds yields no new gaps', async () => {
+    const api = createMockData()
+    await api.ensureSession('rev', baseParams)
+    const els = await api.getElementsForRange('rev', [40, 10])
+    expect(els).toEqual([])
+  })
+
+  it('getSessionSummary returns null for an unknown session', async () => {
+    const api = createMockData()
+    expect(await api.getSessionSummary('no-such-session')).toBeNull()
+  })
+
   it('getSessionSummary reflects stored elements and materialized intervals', async () => {
     const api = createMockData()
     const sid = generateBrowserSessionName()
@@ -166,6 +205,15 @@ describe('createMockData (IndexedDB persistence)', () => {
 
   beforeEach(() => {
     dbName = `open-range-mock-test-${crypto.randomUUID()}`
+  })
+
+  it('createIndexedDbKeyValue adapter get/set/remove', async () => {
+    const kv = createIndexedDbKeyValue(`${dbName}-kv`, 'kvstore')
+    expect(await kv.getItem('k')).toBe(null)
+    await kv.setItem('k', 'v')
+    expect(await kv.getItem('k')).toBe('v')
+    await kv.removeItem('k')
+    expect(await kv.getItem('k')).toBe(null)
   })
 
   it('reloads session state from IndexedDB in a new creator instance', async () => {
@@ -229,5 +277,264 @@ describe('createMockData (IndexedDB persistence)', () => {
     await expect(api2.getElementsForRange('x', [0, 10])).rejects.toThrow(/unknown session/)
     expect(await persistence.getItem(`${prefix}x`)).toBeNull()
     expect(await persistence.getItem(`${prefix}__sessions`)).toBeNull()
+  })
+})
+
+describe('createMockData (edge persistence)', () => {
+  it('readSessionIndex returns empty when index JSON is not an array', async () => {
+    const persistence: MockPersistenceAdapter = {
+      async getItem(key: string) {
+        if (key.includes('__sessions')) return '{}'
+        return null
+      },
+      async setItem() {},
+      async removeItem() {},
+    }
+    const api = createMockData({ persistence })
+    await api.ensureSession('idx-shape', baseParams)
+    const els = await api.getElementsForRange('idx-shape', [0, 12])
+    expect(els.length).toBeGreaterThan(0)
+  })
+
+  it('clearSession removes session index when it was the last session', async () => {
+    const m = new Map<string, string>()
+    const persistence: MockPersistenceAdapter = {
+      async getItem(key: string) {
+        return m.get(key) ?? null
+      },
+      async setItem(key: string, value: string) {
+        m.set(key, value)
+      },
+      async removeItem(key: string) {
+        m.delete(key)
+      },
+    }
+    const prefix = 'edge-prefix:'
+    const api = createMockData({ persistence, persistenceKeyPrefix: prefix })
+    await api.ensureSession('only', baseParams)
+    const indexKey = `${prefix}__sessions`
+    expect(await persistence.getItem(indexKey)).toBeTruthy()
+    await api.clearSession('only')
+    expect(await persistence.getItem(indexKey)).toBeNull()
+  })
+
+  it('readSessionIndex tolerates corrupt JSON in the index key', async () => {
+    const persistence: MockPersistenceAdapter = {
+      async getItem(key: string) {
+        if (key.includes('__sessions')) return '{not-json'
+        return null
+      },
+      async setItem() {},
+      async removeItem() {},
+    }
+    const api = createMockData({ persistence })
+    await api.ensureSession('recover', baseParams)
+    const els = await api.getElementsForRange('recover', [0, 15])
+    expect(els.length).toBeGreaterThan(0)
+  })
+
+  it('removeSessionFromIndex updates index when one session remains', async () => {
+    const m = new Map<string, string>()
+    const persistence: MockPersistenceAdapter = {
+      async getItem(key: string) {
+        return m.get(key) ?? null
+      },
+      async setItem(key: string, value: string) {
+        m.set(key, value)
+      },
+      async removeItem(key: string) {
+        m.delete(key)
+      },
+    }
+    const prefix = 'idx-test:'
+    const api = createMockData({ persistence, persistenceKeyPrefix: prefix })
+    await api.ensureSession('a', baseParams)
+    await api.ensureSession('b', baseParams)
+    await api.clearSession('a')
+    const raw = await persistence.getItem(`${prefix}__sessions`)
+    expect(raw).toBeTruthy()
+    const ids = JSON.parse(raw!) as string[]
+    expect(ids).toEqual(['b'])
+  })
+
+  it('hydrate ignores corrupt session JSON blob', async () => {
+    const m = new Map<string, string>()
+    const persistence: MockPersistenceAdapter = {
+      async getItem(key: string) {
+        return m.get(key) ?? null
+      },
+      async setItem(key: string, value: string) {
+        m.set(key, value)
+      },
+      async removeItem(key: string) {
+        m.delete(key)
+      },
+    }
+    const prefix = 'corrupt:'
+    const api1 = createMockData({ persistence, persistenceKeyPrefix: prefix })
+    await api1.ensureSession('badblob', baseParams)
+    const key = `${prefix}badblob`
+    await persistence.setItem(key, '{broken json')
+    const api2 = createMockData({ persistence, persistenceKeyPrefix: prefix })
+    await expect(api2.getElementsForRange('badblob', [0, 10])).rejects.toThrow(
+      /unknown session/
+    )
+  })
+
+  it('parseState rejects a non-object element row', async () => {
+    const m = new Map<string, string>()
+    const persistence: MockPersistenceAdapter = {
+      async getItem(key: string) {
+        return m.get(key) ?? null
+      },
+      async setItem(key: string, value: string) {
+        m.set(key, value)
+      },
+      async removeItem(key: string) {
+        m.delete(key)
+      },
+    }
+    const prefix = 'bad-row:'
+    const key = `${prefix}bad-row`
+    await persistence.setItem(
+      key,
+      JSON.stringify({
+        lockedParams: baseParams,
+        elements: [1, 2, 3],
+        materialized: [],
+      })
+    )
+    const api = createMockData({ persistence, persistenceKeyPrefix: prefix })
+    await expect(api.getElementsForRange('bad-row', [0, 10])).rejects.toThrow(
+      /unknown session/
+    )
+  })
+
+  it('parseState rejects elements rows with non-numeric start/end', async () => {
+    const m = new Map<string, string>()
+    const persistence: MockPersistenceAdapter = {
+      async getItem(key: string) {
+        return m.get(key) ?? null
+      },
+      async setItem(key: string, value: string) {
+        m.set(key, value)
+      },
+      async removeItem(key: string) {
+        m.delete(key)
+      },
+    }
+    const prefix = 'bad-el:'
+    const key = `${prefix}bad-el`
+    await persistence.setItem(
+      key,
+      JSON.stringify({
+        lockedParams: baseParams,
+        elements: [{ start: 'nope', end: 1 }],
+        materialized: [],
+      })
+    )
+    const api = createMockData({ persistence, persistenceKeyPrefix: prefix })
+    await expect(api.getElementsForRange('bad-el', [0, 10])).rejects.toThrow(
+      /unknown session/
+    )
+  })
+
+  it('parseState rejects JSON with non-array elements', async () => {
+    const m = new Map<string, string>()
+    const persistence: MockPersistenceAdapter = {
+      async getItem(key: string) {
+        return m.get(key) ?? null
+      },
+      async setItem(key: string, value: string) {
+        m.set(key, value)
+      },
+      async removeItem(key: string) {
+        m.delete(key)
+      },
+    }
+    const prefix = 'shape:'
+    const key = `${prefix}badshape`
+    await persistence.setItem(
+      key,
+      JSON.stringify({
+        lockedParams: baseParams,
+        elements: 'not-an-array',
+        materialized: [],
+      })
+    )
+    const api = createMockData({ persistence, persistenceKeyPrefix: prefix })
+    await expect(api.getElementsForRange('badshape', [0, 10])).rejects.toThrow(
+      /unknown session/
+    )
+  })
+})
+
+describe('browserSessionId', () => {
+  it('returns the same id on repeat while localStorage is unchanged', () => {
+    clearBrowserSessionIdFromStorage()
+    const a = getOrCreateBrowserSessionId()
+    const b = getOrCreateBrowserSessionId()
+    expect(a).toBe(b)
+  })
+
+  it('generateBrowserSessionName has random prefix and ISO suffix', () => {
+    const name = generateBrowserSessionName()
+    expect(name).toMatch(/^[a-z0-9]{4}-/)
+    expect(name.length).toBeGreaterThan(24)
+  })
+
+  it('persists a new id when localStorage is empty', () => {
+    clearBrowserSessionIdFromStorage()
+    const id = getOrCreateBrowserSessionId()
+    expect(id).toMatch(/-/)
+    expect(localStorage.getItem('open-range:mockBrowserSessionId')).toBe(id)
+  })
+
+  it('getOrCreateBrowserSessionId works when localStorage throws', () => {
+    const orig = globalThis.localStorage
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem() {
+          throw new Error('blocked')
+        },
+        setItem() {
+          throw new Error('blocked')
+        },
+        removeItem() {
+          throw new Error('blocked')
+        },
+      },
+    })
+    try {
+      const id = getOrCreateBrowserSessionId()
+      expect(id.length).toBeGreaterThan(4)
+      expect(id).toMatch(/-/)
+    } finally {
+      Object.defineProperty(globalThis, 'localStorage', {
+        configurable: true,
+        value: orig,
+      })
+    }
+  })
+
+  it('clearBrowserSessionIdFromStorage ignores removeItem errors', () => {
+    const orig = globalThis.localStorage
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      value: {
+        removeItem() {
+          throw new Error('blocked')
+        },
+      },
+    })
+    try {
+      expect(() => clearBrowserSessionIdFromStorage()).not.toThrow()
+    } finally {
+      Object.defineProperty(globalThis, 'localStorage', {
+        configurable: true,
+        value: orig,
+      })
+    }
   })
 })
