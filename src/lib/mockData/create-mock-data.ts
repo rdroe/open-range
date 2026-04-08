@@ -18,10 +18,18 @@ export type MockPersistenceAdapter = {
   removeItem(key: string): Promise<void>
 }
 
+/** `default` — viewport-scaled steps (original). `calendarAligned` — intervals snap to a calendar-like grid in ms (deterministic per gap). */
+export type MockDataGenerationMode = 'default' | 'calendarAligned'
+
 export type CreateMockDataOptions = {
   persistence?: MockPersistenceAdapter
   /** Prepended to storage keys per session. Default: `open-range:mockRange:` */
   persistenceKeyPrefix?: string
+  /**
+   * `calendarAligned` places mock intervals on a “nice” time grid (minutes … ~years)
+   * derived from viewport width in ms; edges align to multiples of the chosen step.
+   */
+  generationMode?: MockDataGenerationMode
 }
 
 export type MockSessionSummary = {
@@ -118,11 +126,49 @@ function mulberry32(seed: number) {
   }
 }
 
+/** Pick a human-scale grid step in ms from viewport width (for calendar-aligned mock bars). */
+function pickCalendarGridStepMs(viewportWidthMs: number): number {
+  const rough = Math.max(viewportWidthMs / 10, 60_000)
+  const candidates = [
+    60_000,
+    2 * 60_000,
+    5 * 60_000,
+    10 * 60_000,
+    15 * 60_000,
+    30 * 60_000,
+    3_600_000,
+    2 * 3_600_000,
+    3 * 3_600_000,
+    6 * 3_600_000,
+    12 * 3_600_000,
+    86_400_000,
+    2 * 86_400_000,
+    7 * 86_400_000,
+    30 * 86_400_000,
+    365 * 86_400_000,
+  ]
+  let best = candidates[0]!
+  let bestScore = Infinity
+  for (const s of candidates) {
+    if (s > viewportWidthMs * 0.75) continue
+    const score = Math.abs(Math.log(s / rough))
+    if (score < bestScore) {
+      bestScore = score
+      best = s
+    }
+  }
+  return best
+}
+
 function generateElementsForGap(
   params: RangeParameters,
   gap: [number, number],
-  sessionId: string
+  sessionId: string,
+  mode: MockDataGenerationMode
 ): MockRangeElement[] {
+  if (mode === 'calendarAligned') {
+    return generateElementsForGapCalendarAligned(params, gap, sessionId)
+  }
   const [g0, g1] = gap
   const vw = viewportWidth(params)
   const baseStep = Math.max(vw / 5, Number.EPSILON * 10)
@@ -145,6 +191,46 @@ function generateElementsForGap(
     const step = baseStep * (0.45 + 1.1 * rand())
     c += step
     if (c > g1 - baseHalf * 0.4) break
+  }
+
+  return elements
+}
+
+function generateElementsForGapCalendarAligned(
+  params: RangeParameters,
+  gap: [number, number],
+  sessionId: string
+): MockRangeElement[] {
+  const [g0, g1] = gap
+  const vw = viewportWidth(params)
+  const stepMs = Math.max(pickCalendarGridStepMs(vw), 60_000)
+  const seed = (hashString(sessionId) ^ hashGap(g0, g1)) >>> 0
+  const rand = mulberry32(seed)
+
+  const align = (t: number) => Math.floor(t / stepMs) * stepMs
+
+  let t = align(g0)
+  if (t < g0) t += stepMs
+
+  const elements: MockRangeElement[] = []
+  let guard = 0
+  while (t < g1 && guard < 100_000) {
+    guard++
+    if (rand() > 0.42) {
+      const slotFrac = 0.55 + 0.35 * rand()
+      const width = Math.min(stepMs * slotFrac, g1 - t)
+      if (width > stepMs * 0.08) {
+        const start = t + (stepMs - width) * 0.5 * rand()
+        const end = Math.min(start + width, g1)
+        if (end > start && start >= g0) {
+          elements.push({
+            start: Math.max(start, g0),
+            end: Math.min(end, g1),
+          })
+        }
+      }
+    }
+    t += stepMs
   }
 
   return elements
@@ -212,6 +298,7 @@ function createMemoryPersistence(): MockPersistenceAdapter {
 export function createMockData(options?: CreateMockDataOptions): MockDataCreator {
   const persistence = options?.persistence ?? createMemoryPersistence()
   const keyPrefix = options?.persistenceKeyPrefix ?? 'open-range:mockRange:'
+  const generationMode: MockDataGenerationMode = options?.generationMode ?? 'default'
   /** Lists session ids that have been persisted so `clearAll` can remove keys without a storage listing API. */
   const sessionIndexKey = `${keyPrefix}__sessions`
   const sessions = new Map<string, SessionState>()
@@ -306,7 +393,7 @@ export function createMockData(options?: CreateMockDataOptions): MockDataCreator
       }
       const gaps = gapsInRequest(range, state.materialized)
       for (const gap of gaps) {
-        const newEls = generateElementsForGap(state.lockedParams, gap, sessionId)
+        const newEls = generateElementsForGap(state.lockedParams, gap, sessionId, generationMode)
         state.elements.push(...newEls)
         state.materialized = mergeIntervals([...state.materialized, gap])
       }

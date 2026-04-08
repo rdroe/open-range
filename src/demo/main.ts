@@ -7,6 +7,7 @@ import {
   HOME_DEMO_DEFAULT_CENTER_INPUT,
   HOME_DEMO_RANGE_IDS,
 } from './homeDemoConstants'
+import { mountDatetimeMockDemo } from './datetimeMockDemo'
 import { mountMockDataDemo } from './mockDataDemo'
 
 function applyHomeCenterInput(raw: string) {
@@ -59,6 +60,7 @@ function buildHome() {
   nav.id = 'demo-home-nav'
   const links: [string, string][] = [
     ['#section-mock-data', 'Mock data axis'],
+    ['#section-datetime-mock', 'Datetime · ms · calendar mock'],
     ['#section-dimensional', 'Dimensional examples'],
     ['#mount-alphadex', 'Alphadex panel'],
     ['#mount-numeric', 'Numeric + tickmarks'],
@@ -75,8 +77,16 @@ function buildHome() {
   nav.appendChild(span)
   const standalone = document.createElement('a')
   standalone.href = '/mock-data-demo.html'
-  standalone.textContent = 'Open mock-only page'
+  standalone.textContent = 'Mock-only page'
   nav.appendChild(standalone)
+  const span2 = document.createElement('span')
+  span2.className = 'demo-home-muted'
+  span2.textContent = ' · '
+  nav.appendChild(span2)
+  const standaloneDt = document.createElement('a')
+  standaloneDt.href = '/datetime-mock-demo.html'
+  standaloneDt.textContent = 'Datetime mock page'
+  nav.appendChild(standaloneDt)
 
   header.appendChild(title)
   header.appendChild(controls)
@@ -91,6 +101,16 @@ function buildHome() {
   mockMount.id = 'mock-data-demo'
   mockSection.appendChild(mockH2)
   mockSection.appendChild(mockMount)
+
+  const dtSection = document.createElement('section')
+  dtSection.id = 'section-datetime-mock'
+  dtSection.className = 'demo-home-section'
+  const dtH2 = document.createElement('h2')
+  dtH2.textContent = 'Datetime axis · ms · calendar granularities · calendarAligned mock'
+  const dtMount = document.createElement('div')
+  dtMount.id = 'datetime-mock-demo'
+  dtSection.appendChild(dtH2)
+  dtSection.appendChild(dtMount)
 
   const dimSection = document.createElement('section')
   dimSection.id = 'section-dimensional'
@@ -110,11 +130,13 @@ function buildHome() {
 
   root.appendChild(header)
   root.appendChild(mockSection)
+  root.appendChild(dtSection)
   root.appendChild(dimSection)
   host.appendChild(root)
 
   const seed = HOME_DEMO_DEFAULT_CENTER_INPUT
   mountMockDataDemo({ embedded: true, initialCenterInput: seed })
+  mountDatetimeMockDemo({ embedded: true })
   createDimensionalExampleAlphadex({
     layout: 'flow',
     parent: mountA,

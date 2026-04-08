@@ -99,6 +99,23 @@ describe('createMockData (in-memory persistence)', () => {
     await expect(api.updateLockedParameters('nope', baseParams)).rejects.toThrow(/unknown session/)
   })
 
+  it('calendarAligned generationMode materializes valid intervals over a wide span', async () => {
+    const api = createMockData({ generationMode: 'calendarAligned' })
+    const params: RangeParameters = {
+      zoom: 1,
+      unitSize: 86_400_000,
+      unitsPerViewportWidth: 14,
+    }
+    await api.ensureSession('cal-aligned', params)
+    const els = await api.getElementsForRange('cal-aligned', [0, 86_400_000 * 400])
+    expect(els.length).toBeGreaterThan(0)
+    for (const el of els) {
+      expect(el.end).toBeGreaterThan(el.start)
+      expect(Number.isFinite(el.start)).toBe(true)
+      expect(Number.isFinite(el.end)).toBe(true)
+    }
+  })
+
   it('gapsInRequest adds a leading gap when materialized starts after the request start', async () => {
     const api = createMockData()
     await api.ensureSession('gap-lead', baseParams)
