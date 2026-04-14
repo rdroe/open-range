@@ -1,3 +1,5 @@
+import { createDetailEvent } from '../internal/detailEvent'
+
 export type NumericInput = number
 
 export const emitters: {
@@ -96,7 +98,7 @@ export function internalInputChangedListener(
   }
   store[rangeId].input = event.detail.input
   emitters[rangeId].inputChanged.dispatchEvent(
-    new CustomEvent(getEventNames2(rangeId).inputAfterChanged, {
+    createDetailEvent(getEventNames2(rangeId).inputAfterChanged, {
       detail: { rangeId: rangeId },
     })
   )
@@ -111,7 +113,7 @@ export function inputAfterChangedListener(
   }
   store[rangeId].loading = true
   emitters[rangeId].loading.dispatchEvent(
-    new CustomEvent(getEventNames2(rangeId).loading, {
+    createDetailEvent(getEventNames2(rangeId).loading, {
       detail: { rangeId: rangeId, loading: true },
     })
   )
@@ -126,13 +128,13 @@ export function inputAfterChangedListener(
     if (conversionStore.convertedLoading === false) {
       conversionStore.convertedLoading = true
       conversionEmitters.convertedLoading.dispatchEvent(
-        new CustomEvent(conversionEventNames.convertedLoading, {
+        createDetailEvent(conversionEventNames.convertedLoading, {
           detail: { rangeId: rangeId, loading: true },
         })
       )
     }
     conversionEmitters.convertedViewableRangeLoading.dispatchEvent(
-      new CustomEvent(conversionEventNames.convertedViewableRangeLoading, {
+      createDetailEvent(conversionEventNames.convertedViewableRangeLoading, {
         detail: { rangeId: rangeId, viewableRangeLoading: true },
       })
     )
@@ -144,7 +146,7 @@ export function inputAfterChangedListener(
     emitters[rangeId].loadingRefCount--
 
     emitters[rangeId].viewableRange.dispatchEvent(
-      new CustomEvent(getEventNames2(rangeId).viewableRange, {
+      createDetailEvent(getEventNames2(rangeId).viewableRange, {
         detail: {
           rangeId: rangeId,
           viewableRange: store[rangeId].viewableRange,
@@ -155,7 +157,7 @@ export function inputAfterChangedListener(
 
       store[rangeId].loading = false
       emitters[rangeId].loading.dispatchEvent(
-        new CustomEvent(getEventNames2(rangeId).loading, {
+        createDetailEvent(getEventNames2(rangeId).loading, {
           detail: { rangeId: rangeId, loading: false },
         })
       )
@@ -167,7 +169,7 @@ export function inputAfterChangedListener(
     const conversionEventNames = getConversionEventNames(rangeId)
 
     conversionEmitters.convertedNextLeftRangeLoading.dispatchEvent(
-      new CustomEvent(conversionEventNames.convertedNextLeftRangeLoading, {
+      createDetailEvent(conversionEventNames.convertedNextLeftRangeLoading, {
         detail: { rangeId: rangeId, nextLeftRangeLoading: true },
       })
     )
@@ -179,7 +181,7 @@ export function inputAfterChangedListener(
 
     store[rangeId].nextLeftRange = nextLeftRange
     emitters[rangeId].nextLeftRange.dispatchEvent(
-      new CustomEvent(getEventNames2(rangeId).nextLeftRange, {
+      createDetailEvent(getEventNames2(rangeId).nextLeftRange, {
         detail: {
           rangeId: rangeId,
           nextLeftRange: store[rangeId].nextLeftRange,
@@ -189,7 +191,7 @@ export function inputAfterChangedListener(
     if (emitters[rangeId].loadingRefCount === 0) {
       store[rangeId].loading = false
       emitters[rangeId].loading.dispatchEvent(
-        new CustomEvent(getEventNames2(rangeId).loading, {
+        createDetailEvent(getEventNames2(rangeId).loading, {
           detail: { rangeId: rangeId, loading: false },
         })
       )
@@ -201,7 +203,7 @@ export function inputAfterChangedListener(
     const conversionEventNames = getConversionEventNames(rangeId)
     
     conversionEmitters.convertedNextRightRangeLoading.dispatchEvent(
-      new CustomEvent(conversionEventNames.convertedNextRightRangeLoading, {
+      createDetailEvent(conversionEventNames.convertedNextRightRangeLoading, {
         detail: { rangeId: rangeId, nextRightRangeLoading: true },
       })
     )
@@ -213,7 +215,7 @@ export function inputAfterChangedListener(
 
     store[rangeId].nextRightRange = nextRightRange
     emitters[rangeId].nextRightRange.dispatchEvent(
-      new CustomEvent(getEventNames2(rangeId).nextRightRange, {
+      createDetailEvent(getEventNames2(rangeId).nextRightRange, {
         detail: {
           rangeId: rangeId,
           nextRightRange: store[rangeId].nextRightRange,
@@ -223,7 +225,7 @@ export function inputAfterChangedListener(
     if (emitters[rangeId].loadingRefCount === 0) {
       store[rangeId].loading = false
       emitters[rangeId].loading.dispatchEvent(
-        new CustomEvent(getEventNames2(rangeId).loading, {
+        createDetailEvent(getEventNames2(rangeId).loading, {
           detail: { rangeId: rangeId, loading: false },
         })
       )
@@ -495,7 +497,7 @@ export const subscribeToRangeEndLoading = (
 export const updateRangeInputInner = (rangeId: string, input: NumericInput) => {
   store[rangeId].input = input
   emitters[rangeId].inputChanged.dispatchEvent(
-    new CustomEvent(getEventNames2(rangeId).inputChanged, {
+    createDetailEvent(getEventNames2(rangeId).inputChanged, {
       detail: { rangeId: rangeId, input: input },
     })
   )

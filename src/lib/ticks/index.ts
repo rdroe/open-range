@@ -1,3 +1,4 @@
+import { createDetailEvent } from '../internal/detailEvent'
 import type { StringOrNumberOrDate } from '../readableRange'
 import { conversionEmitters } from '../readableRange'
 import {
@@ -132,7 +133,7 @@ function getTicksLoadingStartHandler(rangeId: string, rangeName: "viewableRange"
       ticksStore[rangeId].ticks[rangeName] = ticks
 
       const completionEvent = completionEvents[rangeName]
-      emitters[rangeId][completionEvent].dispatchEvent(new CustomEvent(completionEvent, {
+      emitters[rangeId][completionEvent].dispatchEvent(createDetailEvent(completionEvent, {
         detail: {
           name: completionEvent, 
           boolean: true,
@@ -150,7 +151,7 @@ function getDispatchAdder(rangeId: string, eventName: string, emitterName: keyof
       [key in typeof detailProp]: boolean
     } }) => {
       if (!event.detail[detailProp]) {
-        ticksEmitters[rangeId][eventName].dispatchEvent(new CustomEvent(eventName, {
+        ticksEmitters[rangeId][eventName].dispatchEvent(createDetailEvent(eventName, {
           detail: {
             rangeId: rangeId,
           },
@@ -174,7 +175,7 @@ const getCompletionEventHandler = (rangeId: string, rangeName: "viewableRange" |
     const otherRangesLoadingEntriesLength = Object.entries(isLoading[rangeId]).filter(([key, value]) => key !== rangeName && value === true).length
     if (otherRangesLoadingEntriesLength === 0) {
       ticksStore[rangeId].loading[rangeName] = false
-      emitters[rangeId][TICKS_LOADING_COMPLETE_EVENT].dispatchEvent(new CustomEvent(TICKS_LOADING_COMPLETE_EVENT, {
+      emitters[rangeId][TICKS_LOADING_COMPLETE_EVENT].dispatchEvent(createDetailEvent(TICKS_LOADING_COMPLETE_EVENT, {
         detail: {
           name: TICKS_LOADING_COMPLETE_EVENT,
           boolean: true,

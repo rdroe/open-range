@@ -12,6 +12,11 @@ import {
   getOrCreateBrowserSessionId,
 } from '../src/lib/mockData/browserSessionId'
 import { createIndexedDbKeyValue } from '../src/lib/mockData/indexedDbKeyValue'
+import {
+  TIME_GRANULARITIES,
+  TIME_GRANULARITY_LABEL,
+  granularityToMilliseconds,
+} from '../src/lib/mockData/granularity'
 
 const baseParams: RangeParameters = {
   zoom: 1,
@@ -114,6 +119,18 @@ describe('createMockData (in-memory persistence)', () => {
       expect(Number.isFinite(el.start)).toBe(true)
       expect(Number.isFinite(el.end)).toBe(true)
     }
+  })
+
+  it('calendarAligned advances the walk cursor when gap start is not on the grid', async () => {
+    const api = createMockData({ generationMode: 'calendarAligned' })
+    const params: RangeParameters = {
+      zoom: 1,
+      unitSize: 86_400_000,
+      unitsPerViewportWidth: 14,
+    }
+    await api.ensureSession('cal-misaligned-start', params)
+    const els = await api.getElementsForRange('cal-misaligned-start', [30_000, 86_400_000 * 50])
+    expect(els.length).toBeGreaterThan(0)
   })
 
   it('gapsInRequest adds a leading gap when materialized starts after the request start', async () => {
@@ -552,6 +569,15 @@ describe('browserSessionId', () => {
         configurable: true,
         value: orig,
       })
+    }
+  })
+})
+
+describe('time granularity helpers', () => {
+  it('maps each calendar granularity to positive milliseconds and has a label', () => {
+    for (const g of TIME_GRANULARITIES) {
+      expect(granularityToMilliseconds(g)).toBeGreaterThan(0)
+      expect(TIME_GRANULARITY_LABEL[g].length).toBeGreaterThan(0)
     }
   })
 })

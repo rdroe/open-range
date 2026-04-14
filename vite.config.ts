@@ -35,6 +35,9 @@ export default defineConfig(({ mode }) => {
           mockDataDemo: fileURLToPath(new URL('./mock-data-demo.html', import.meta.url)),
           datetimeMockDemo: fileURLToPath(new URL('./datetime-mock-demo.html', import.meta.url)),
           libraryHarness: fileURLToPath(new URL('./library-harness.html', import.meta.url)),
+          workerOpenRange: fileURLToPath(
+            new URL('./worker-open-range.html', import.meta.url)
+          ),
         },
       },
     },

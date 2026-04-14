@@ -1,3 +1,4 @@
+import { createDetailEvent } from '../internal/detailEvent'
 import type { NumericInput } from '../basicRange'
 import {
   registerRange,
@@ -224,7 +225,7 @@ function convertUpdatedInputHandler<InputType extends StringOrNumberOrDate>(
     input
   ) as InputType
   conversionEmitters[rangeId].inputConverted.dispatchEvent(
-    new CustomEvent(getConversionEventNames(rangeId).inputConverted, {
+    createDetailEvent(getConversionEventNames(rangeId).inputConverted, {
       detail: { rangeId, input: conversionStore[rangeId].input },
     })
   )
@@ -248,7 +249,7 @@ function convertUpdatedViewableRangeHandler<
   const {numberToInput} = conversionStore[rangeId].fns
     accessConversionStore<InputType>(rangeId).viewableRange = viewableRange.map((value) => numberToInput(value as number)) as [start: InputType, end: InputType]
   conversionEmitters[rangeId].viewableRangeConverted.dispatchEvent(
-    new CustomEvent(getConversionEventNames(rangeId).viewableRangeConverted, {
+    createDetailEvent(getConversionEventNames(rangeId).viewableRangeConverted, {
       detail: {
         rangeId: rangeId,
         viewableRange: accessConversionStore<InputType>(rangeId).viewableRange,
@@ -256,7 +257,7 @@ function convertUpdatedViewableRangeHandler<
     })
   )
   conversionEmitters[rangeId].convertedViewableRangeLoading.dispatchEvent(
-    new CustomEvent(
+    createDetailEvent(
       getConversionEventNames(rangeId).convertedViewableRangeLoading,
       {
         detail: { rangeId: rangeId, viewableRangeLoading: false },
@@ -283,7 +284,7 @@ function convertUpdatedNextLeftRangeHandler<
   const {numberToInput} = conversionStore[rangeId].fns
   accessConversionStore<InputType>(rangeId).nextLeftRange = nextLeftRange.map((value) => numberToInput(value as number)) as [start: InputType, end: InputType]
   conversionEmitters[rangeId].nextLeftRangeConverted.dispatchEvent(
-    new CustomEvent(getConversionEventNames(rangeId).nextLeftRangeConverted, {
+    createDetailEvent(getConversionEventNames(rangeId).nextLeftRangeConverted, {
       detail: {
         rangeId: rangeId,
         nextLeftRange: accessConversionStore<InputType>(rangeId).nextLeftRange,
@@ -291,7 +292,7 @@ function convertUpdatedNextLeftRangeHandler<
     })
   )
   conversionEmitters[rangeId].convertedNextLeftRangeLoading.dispatchEvent(
-    new CustomEvent(
+    createDetailEvent(
       getConversionEventNames(rangeId).convertedNextLeftRangeLoading,
       {
         detail: { rangeId: rangeId, nextLeftRangeLoading: false },
@@ -317,7 +318,7 @@ function convertUpdatedNextRightRangeHandler<
   const {numberToInput} = conversionStore[rangeId].fns
   accessConversionStore<InputType>(rangeId).nextRightRange = nextRightRange.map((value) => numberToInput(value as number)) as [start: InputType, end: InputType]
   conversionEmitters[rangeId].nextRightRangeConverted.dispatchEvent(
-    new CustomEvent(getConversionEventNames(rangeId).nextRightRangeConverted, {
+    createDetailEvent(getConversionEventNames(rangeId).nextRightRangeConverted, {
       detail: {
         rangeId: rangeId,
         nextRightRange:
@@ -326,7 +327,7 @@ function convertUpdatedNextRightRangeHandler<
     })
   )
   conversionEmitters[rangeId].convertedNextRightRangeLoading.dispatchEvent(
-    new CustomEvent(
+    createDetailEvent(
       getConversionEventNames(rangeId).convertedNextRightRangeLoading,
       {
         detail: { rangeId: rangeId, nextRightRangeLoading: false },
@@ -366,7 +367,7 @@ function convertUpdatedViewableRangeLoadingHandler<
 
       accessConversionStore<InputType>(rangeId).convertedLoading = false
       conversionEmitters[rangeId].convertedLoading.dispatchEvent(
-        new CustomEvent(getConversionEventNames(rangeId).convertedLoading, {
+        createDetailEvent(getConversionEventNames(rangeId).convertedLoading, {
           detail: { rangeId: rangeId, loading: false },
         })
       )
@@ -406,7 +407,7 @@ function convertUpdatedNextLeftRangeLoadingHandler<
 
       accessConversionStore<InputType>(rangeId).convertedLoading = false
       conversionEmitters[rangeId].convertedLoading.dispatchEvent(
-        new CustomEvent(getConversionEventNames(rangeId).convertedLoading, {
+        createDetailEvent(getConversionEventNames(rangeId).convertedLoading, {
           detail: { rangeId: rangeId, loading: false },
         })
       )
@@ -446,7 +447,7 @@ function convertUpdatedNextRightRangeLoadingHandler<
 
       accessConversionStore<InputType>(rangeId).convertedLoading = false
       conversionEmitters[rangeId].convertedLoading.dispatchEvent(
-        new CustomEvent(getConversionEventNames(rangeId).convertedLoading, {
+        createDetailEvent(getConversionEventNames(rangeId).convertedLoading, {
           detail: { rangeId: rangeId, loading: false },
         })
       )
