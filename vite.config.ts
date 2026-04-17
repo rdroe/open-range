@@ -38,6 +38,7 @@ export default defineConfig(({ mode }) => {
           workerOpenRange: fileURLToPath(
             new URL('./worker-open-range.html', import.meta.url)
           ),
+          scrollDemo: fileURLToPath(new URL('./scroll-demo.html', import.meta.url)),
         },
       },
     },

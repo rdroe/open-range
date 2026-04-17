@@ -87,6 +87,14 @@ function buildHome() {
   standaloneDt.href = '/datetime-mock-demo.html'
   standaloneDt.textContent = 'Datetime mock page'
   nav.appendChild(standaloneDt)
+  const span3 = document.createElement('span')
+  span3.className = 'demo-home-muted'
+  span3.textContent = ' · '
+  nav.appendChild(span3)
+  const standaloneScroll = document.createElement('a')
+  standaloneScroll.href = '/scroll-demo.html'
+  standaloneScroll.textContent = 'Scroll demo'
+  nav.appendChild(standaloneScroll)
 
   header.appendChild(title)
   header.appendChild(controls)
