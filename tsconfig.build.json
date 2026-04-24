@@ -9,5 +9,5 @@
     "rootDir": "src/lib"
   },
   "include": ["src/lib/**/*.ts"],
-  "exclude": ["src/lib/mockData/**"]
+  "exclude": ["src/lib/mockData/**", "src/lib/mockData2/**"]
 }
