@@ -108,6 +108,14 @@ export function createMockData2(options?: CreateMockData2Options): MockData2 {
   const persistence = options?.persistence ?? createMemoryPersistence()
   const keyPrefix = options?.persistenceKeyPrefix ?? 'open-range:mock2:'
   const dataPropertyGenerators = options?.dataPropertyGenerators
+  const customGen = options?.generateElementsForGap
+
+  const runGap = (g: [number, number], tagKey: string): MockRangeElement2[] => {
+    if (customGen) {
+      return customGen(g, tagKey)
+    }
+    return generateElementsForGap2(g, tagKey, '', dataPropertyGenerators)
+  }
 
   const stateKey = (key: string) => `${keyPrefix}tag:${key}`
   const indexKey = `${keyPrefix}__index`
@@ -187,9 +195,7 @@ export function createMockData2(options?: CreateMockData2Options): MockData2 {
 
       const covered = state.chunks.map((c) => [c.lo, c.hi] as [number, number])
       const gapList = gapsInRequest(req, mergeSortedIntervals(covered))
-      const newElsByGap: MockRangeElement2[][] = gapList.map((g) =>
-        generateElementsForGap2(g, tagKey, '', dataPropertyGenerators)
-      )
+      const newElsByGap: MockRangeElement2[][] = gapList.map((g) => runGap(g, tagKey))
       const newEls = newElsByGap.flat()
 
       const C = state.chunks.filter((c) => intervalOverlaps([c.lo, c.hi], req))

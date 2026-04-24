@@ -13,8 +13,14 @@ import {
   updateDimensionalRangeParams,
 } from '../../lib/dimensionalRange'
 import { LANE_COLORS, RANGE_ID } from './constants'
+import {
+  bumpScrollLanesDataEpoch,
+  mock2ToLane,
+  scrollLanesMockStore,
+  scrollLanesMockTags,
+} from './mockData2Bridge'
 import { fixPackByLane } from './packLanes'
-import { generateElementsForRange, groupByLane } from './generateElements'
+import { groupByLane } from './generateElements'
 import {
   contentPixels,
   defaultInitialScrollLeft,
@@ -25,6 +31,12 @@ import {
   xToPx as mapXToContentPx,
   zoneName,
 } from './scrollMapping'
+import {
+  clearScrollLanesUiStorage,
+  DEFAULT_SCROLL_LANES_UI,
+  loadScrollLanesUi,
+  saveScrollLanesUi,
+} from './scrollLanesUiStorage'
 import type { AllLanesLayout, LaneElement, MountScrollLanesDemoOptions } from './types'
 
 export type { MountScrollLanesDemoOptions } from './types'
@@ -33,19 +45,20 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
   const { embedded = false } = options
   if (typeof document === 'undefined') return
 
-  const state = {
-    viewableDomainWidth: 100,
-    leftPrefetchFactor: 1,
-    rightPrefetchFactor: 1,
-    aperturePx: 720,
-    tickStep: 20,
+  const originalRangeValue = 500
+  const loadedUi = loadScrollLanesUi(originalRangeValue)
+
+  const state = { ...DEFAULT_SCROLL_LANES_UI }
+  if (loadedUi) {
+    Object.assign(state, loadedUi.params)
   }
 
   let byLane: LaneElement[][] = groupByLane([])
 
-  const originalRangeValue = 500
-  let shiftCount = 0
-  let currentRangeValue = originalRangeValue
+  let shiftCount = loadedUi?.shiftCount ?? 0
+  let currentRangeValue = loadedUi?.currentRangeValue ?? originalRangeValue
+  const initialRestoredScrollLeft: number | undefined =
+    loadedUi != null ? loadedUi.scrollLeft : undefined
   let layout: AllLanesLayout | null = null
 
   const getViewablePx = () => viewablePixels(state.aperturePx)
@@ -76,10 +89,11 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
   const initialScrollLeft = () => defaultInitialScrollLeft(state.leftPrefetchFactor, getViewablePx())
   const zoneFor = (scrollLeft: number) => zoneName(scrollLeft, state.leftPrefetchFactor, getViewablePx())
 
-  const rebuildDataAndPack = (): AllLanesLayout => {
+  const rebuildDataAndPack = async (): Promise<AllLanesLayout> => {
     const t0 = getT0()
     const t1 = getT1()
-    const all = generateElementsForRange(t0, t1)
+    const rows = await scrollLanesMockStore.fetchRange(scrollLanesMockTags, { start: t0, end: t1 })
+    const all = rows.map(mock2ToLane)
     byLane = groupByLane(all)
     return fixPackByLane(byLane, t0, t1)
   }
@@ -131,6 +145,7 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
   `
 
   type ParamKey = 'viewableDomainWidth' | 'leftPrefetchFactor' | 'rightPrefetchFactor' | 'aperturePx' | 'tickStep'
+  const paramInputs = {} as Record<ParamKey, HTMLInputElement>
   const makeInput = (key: ParamKey, label: string) => {
     const wrap = document.createElement('label')
     wrap.style.cssText =
@@ -144,6 +159,7 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
     inp.setAttribute('data-testid', `scroll-lanes-param-${key}`)
     inp.style.cssText =
       'padding: 6px 8px; border-radius: 6px; border: 1px solid #3f3f46; background: #0c0c0e; color: #fafafa; font: inherit;'
+    paramInputs[key] = inp
     inp.addEventListener('change', () => {
       const v = Number(inp.value)
       if (!Number.isFinite(v) || v <= 0) {
@@ -166,6 +182,43 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
   paramsPanel.appendChild(makeInput('aperturePx', 'aperture width (px)'))
   paramsPanel.appendChild(makeInput('tickStep', 'tick step (domain)'))
   layoutRoot.appendChild(paramsPanel)
+
+  const mockActions = document.createElement('div')
+  mockActions.style.cssText =
+    'display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px;'
+  const wipeMockBtn = document.createElement('button')
+  wipeMockBtn.type = 'button'
+  wipeMockBtn.textContent = 'Wipe mock session & regenerate'
+  wipeMockBtn.setAttribute('data-testid', 'scroll-lanes-wipe-mock')
+  wipeMockBtn.title =
+    'Clear persisted scroll-lanes mock data for this browser session, then refetch. Keeps scroll position. Input is blocked until layout is ready.'
+  wipeMockBtn.style.cssText = `
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid #3f3f46;
+    background: #27272a;
+    color: #fafafa;
+    font: inherit;
+    cursor: pointer;
+  `
+  const resetLayoutBtn = document.createElement('button')
+  resetLayoutBtn.type = 'button'
+  resetLayoutBtn.textContent = 'Reset layout defaults (params + scroll + center)'
+  resetLayoutBtn.setAttribute('data-testid', 'scroll-lanes-reset-layout')
+  resetLayoutBtn.title =
+    'Remove saved view settings from this browser, restore default numbers, scroll to the default view position, and reset the domain center. Does not clear mock block data (use the other button for that).'
+  resetLayoutBtn.style.cssText = `
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid #3f3f46;
+    background: #1c1c1f;
+    color: #fafafa;
+    font: inherit;
+    cursor: pointer;
+  `
+  mockActions.appendChild(wipeMockBtn)
+  mockActions.appendChild(resetLayoutBtn)
+  layoutRoot.appendChild(mockActions)
 
   const statusRow = document.createElement('div')
   statusRow.style.cssText = `
@@ -449,6 +502,30 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
     })
   }
 
+  const wipeMockSessionAndRegenerate = async () => {
+    setLock(true)
+    const savedScroll = aperture.scrollLeft
+    try {
+      bumpScrollLanesDataEpoch()
+      await scrollLanesMockStore.clearForTags(scrollLanesMockTags)
+      const L = await rebuildDataAndPack()
+      const ts = ticksStore[RANGE_ID]
+      setTickReadout(ts ? ts.ticks.viewableRange.length : 0)
+      layout = L
+      fullRender()
+      suppressScroll = true
+      aperture.scrollLeft = savedScroll
+      updateReadout(savedScroll)
+      persistUi()
+    } finally {
+      setLock(false)
+    }
+  }
+
+  wipeMockBtn.addEventListener('click', () => {
+    void wipeMockSessionAndRegenerate()
+  })
+
   const waitAllTicksOnce = () =>
     new Promise<void>((resolve) => {
       const u = subscribeToTicksLoadingComplete(RANGE_ID, () => {
@@ -460,15 +537,25 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
   const awaitTicksAndRebuildAfter = (applyUpdate: () => void) => {
     const p = waitAllTicksOnce()
     applyUpdate()
-    return Promise.all([p, Promise.resolve().then(() => rebuildDataAndPack())]).then(
-      (r) => r[1] as AllLanesLayout
-    )
+    return Promise.all([p, rebuildDataAndPack()]).then((r) => r[1] as AllLanesLayout)
   }
 
   const clampScroll = () => {
     const m = Math.max(0, content.scrollWidth - aperture.clientWidth)
     if (m <= 0) return
     if (aperture.scrollLeft > m) aperture.scrollLeft = m
+  }
+
+  const persistUi = () => {
+    saveScrollLanesUi(state, aperture.scrollLeft, shiftCount)
+  }
+  let persistScrollTimer: number | undefined
+  const schedulePersistScroll = () => {
+    if (persistScrollTimer !== undefined) window.clearTimeout(persistScrollTimer)
+    persistScrollTimer = window.setTimeout(() => {
+      persistScrollTimer = undefined
+      persistUi()
+    }, 200)
   }
 
   const onShift = async (shift: number, scrollLeft: number) => {
@@ -487,6 +574,7 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
     suppressScroll = true
     aperture.scrollLeft = newScrollLeft
     updateReadout(newScrollLeft)
+    persistUi()
     setLock(false)
   }
 
@@ -554,6 +642,8 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
     void (async () => {
       setLock(true)
       const L = await awaitTicksAndRebuildAfter(() => {
+        currentRangeValue = originalRangeValue + shiftCount * state.viewableDomainWidth
+        updateDimensionalRange(RANGE_ID, currentRangeValue)
         updateDimensionalRangeParams(RANGE_ID, dr)
       })
       const sl0 = initialScrollLeft()
@@ -564,13 +654,54 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
       suppressScroll = true
       aperture.scrollLeft = sl0
       updateReadout(sl0)
+      persistUi()
       setLock(false)
     })()
   }
 
+  const resetLayoutToDefaults = async () => {
+    setLock(true)
+    try {
+      clearScrollLanesUiStorage()
+      Object.assign(state, DEFAULT_SCROLL_LANES_UI)
+      for (const k of Object.keys(paramInputs) as ParamKey[]) {
+        paramInputs[k]!.value = String(state[k])
+      }
+      shiftCount = 0
+      currentRangeValue = originalRangeValue
+      const dr: DimensionalRange = {
+        zoom: 1,
+        unitSize: 1,
+        unitsPerViewportWidth: state.viewableDomainWidth,
+        leftPrefetchFactor: state.leftPrefetchFactor,
+        rightPrefetchFactor: state.rightPrefetchFactor,
+      }
+      const L = await awaitTicksAndRebuildAfter(() => {
+        updateDimensionalRange(RANGE_ID, originalRangeValue)
+        updateDimensionalRangeParams(RANGE_ID, dr)
+      })
+      const ts = ticksStore[RANGE_ID]
+      setTickReadout(ts ? ts.ticks.viewableRange.length : 0)
+      layout = L
+      fullRender()
+      suppressScroll = true
+      const sl0 = initialScrollLeft()
+      aperture.scrollLeft = sl0
+      updateReadout(sl0)
+      persistUi()
+    } finally {
+      setLock(false)
+    }
+  }
+
+  resetLayoutBtn.addEventListener('click', () => {
+    void resetLayoutToDefaults()
+  })
+
   aperture.addEventListener('scroll', () => {
     const sl = aperture.scrollLeft
     updateReadout(sl)
+    schedulePersistScroll()
     if (scrollEndTimer) clearTimeout(scrollEndTimer)
     scrollEndTimer = window.setTimeout(() => onScrollEndCheckShift(), 130)
   })
@@ -615,24 +746,31 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
   }
 
   registerDimensionalRange<number>(RANGE_ID, {
-    initialInput: originalRangeValue,
+    initialInput: currentRangeValue,
     dimensionalRange: initialDr,
     inputToNumber: (n) => n,
     numberToInput: (n) => n,
   })
 
   subscribeToTicksInitialization(RANGE_ID, () => {
-    const sl0 = initialScrollLeft()
-    setLock(true)
-    const L = rebuildDataAndPack()
-    const ts = ticksStore[RANGE_ID]
-    setTickReadout(ts ? ts.ticks.viewableRange.length : 0)
-    layout = L
-    fullRender()
-    suppressScroll = true
-    aperture.scrollLeft = sl0
-    updateReadout(sl0)
-    setLock(false)
+    void (async () => {
+      setLock(true)
+      const L = await rebuildDataAndPack()
+      const ts = ticksStore[RANGE_ID]
+      setTickReadout(ts ? ts.ticks.viewableRange.length : 0)
+      layout = L
+      fullRender()
+      const maxL = Math.max(0, content.scrollWidth - aperture.clientWidth)
+      const sl0 =
+        initialRestoredScrollLeft !== undefined
+          ? Math.min(Math.max(0, initialRestoredScrollLeft), maxL)
+          : initialScrollLeft()
+      suppressScroll = true
+      aperture.scrollLeft = sl0
+      updateReadout(sl0)
+      persistUi()
+      setLock(false)
+    })()
   })
   registerTicks(RANGE_ID, makeTickFn(), true)
 

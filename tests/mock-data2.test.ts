@@ -70,6 +70,17 @@ describe('mockData2', () => {
     }
   })
 
+  it('generateElementsForGap overrides default and ignores dataPropertyGenerators', async () => {
+    const custom = createMockData2({
+      dataPropertyGenerators: [['ignored', () => 1]],
+      generateElementsForGap: (g) => [
+        { start: g[0], end: g[1], data: { k: 2 } },
+      ],
+    })
+    const els = await custom.fetchRange(tags, { start: 0, end: 5 })
+    expect(els).toEqual([{ start: 0, end: 5, data: { k: 2 } }])
+  })
+
   it('re-fetch preserves data on elements', async () => {
     const withData = createMockData2({
       dataPropertyGenerators: [['k', () => 42]],

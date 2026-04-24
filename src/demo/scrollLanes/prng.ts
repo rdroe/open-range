@@ -26,6 +26,12 @@ export const blockHeightForSeed = (s0: number) => {
   return 10 + Math.floor(r0 * 46) + Math.floor(r1 * 28)
 }
 
-export const cellKeySeed = (g: number, lane: number, k: number) => {
-  return (Math.imul(g, 0x9e37) + Math.imul(lane, 0x1f) + (k * 0x1d) + 0x6d2b79f5) >>> 0
+/**
+ * @param dataEpoch Optional salt (e.g. incremented on “wipe & regenerate”) so the same grid
+ * coordinates can yield different mock layouts without changing domain bounds.
+ */
+export const cellKeySeed = (g: number, lane: number, k: number, dataEpoch = 0) => {
+  const base =
+    (Math.imul(g, 0x9e37) + Math.imul(lane, 0x1f) + k * 0x1d + 0x6d2b79f5) >>> 0
+  return (base ^ (Math.imul(dataEpoch >>> 0, 0x9e3779b9) >>> 0)) >>> 0
 }

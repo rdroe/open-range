@@ -26,7 +26,8 @@
 
 ## API
 
-- `createMockData2({ persistence?, persistenceKeyPrefix?, dataPropertyGenerators? })` → `{ fetchRange, clearForTags, clearAll, getSnapshot }`
+- `createMockData2({ persistence?, persistenceKeyPrefix?, dataPropertyGenerators?, generateElementsForGap? })` → `{ fetchRange, clearForTags, clearAll, getSnapshot }`
+- **`generateElementsForGap(gap, tagKey)`** — optional; if set, replaces the built-in PRNG layout (and `dataPropertyGenerators` is ignored). Use for app-specific shapes (e.g. the scroll-lanes demo maps this to `generateElementsForRange` and stores lane fields in `data`).
 - `fetchRange(tags, { start, end })` — run the flow above; async for persistence.
 - **Persistence** — same pattern as v1: optional `MockPersistenceAdapter2` (`getItem` / `setItem` / `removeItem` of strings). Default is in-memory only.
 

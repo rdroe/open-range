@@ -16,7 +16,7 @@ export const groupByLane = (all: LaneElement[]): LaneElement[][] => {
   return by
 }
 
-export const generateElementsForRange = (t0: number, t1: number): LaneElement[] => {
+export const generateElementsForRange = (t0: number, t1: number, dataEpoch = 0): LaneElement[] => {
   if (t1 - t0 <= 0 || !Number.isFinite(t0) || !Number.isFinite(t1)) return []
   const gMin = Math.floor(t0 / DOMAIN_GRID_STEP)
   const gMax = Math.ceil(t1 / DOMAIN_GRID_STEP)
@@ -30,7 +30,7 @@ export const generateElementsForRange = (t0: number, t1: number): LaneElement[] 
       const kMax = dense ? 7 : 2
       const skipP = dense ? 0.1 : 0.9
       for (let k = 0; k < kMax; k++) {
-        const s0 = cellKeySeed(g, lane, k)
+        const s0 = cellKeySeed(g, lane, k, dataEpoch)
         const r1 = mulberry32(s0)()
         const r2 = mulberry32(s0 * 0x1f)()
         if (r1 > skipP) continue
@@ -71,13 +71,13 @@ export const generateElementsForRange = (t0: number, t1: number): LaneElement[] 
     if (cell1 <= t0 || cell0 >= t1) continue
     const inner = cell1 - cell0
     if (inner < 0.3) continue
-    const s0 = cellKeySeed(g, DENSE_LANE, 90)
+    const s0 = cellKeySeed(g, DENSE_LANE, 90, dataEpoch)
     if (mulberry32(s0)() > 0.35) continue
     const wRaw = 0.18 + mulberry32(s0 * 2)() * 0.22
     const w = Math.min(wRaw * widthScale2to5(s0 * 0x1e), inner * 0.98)
     const t0b = cell0 + inner * 0.1
     if (t0b + w > cell1 || t0b + w <= t0 || t0b >= t1) continue
-    const cSeed = cellKeySeed(g, DENSE_LANE, 91)
+    const cSeed = cellKeySeed(g, DENSE_LANE, 91, dataEpoch)
     out.push({
       id: `c${g}-Ld-chord`,
       tag3: makeTag3(cSeed),

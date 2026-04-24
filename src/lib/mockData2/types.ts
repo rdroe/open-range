@@ -40,8 +40,14 @@ export type CreateMockData2Options = {
    * If set, each **newly generated** element gets `data: Record<name, value>`.
    * For each element, every generator is invoked once. If unset, `data` is `null`.
    * Existing persisted elements are unchanged (their `data` is preserved on merge).
+   * Ignored when `generateElementsForGap` is set.
    */
   dataPropertyGenerators?: MockData2DataPropertySpec
+  /**
+   * Replaces the default PRNG-based gap fill. Return full `MockRangeElement2` (including `data` if needed).
+   * When set, `dataPropertyGenerators` is not used.
+   */
+  generateElementsForGap?: (gap: [number, number], tagKey: string) => MockRangeElement2[]
 }
 
 /**
