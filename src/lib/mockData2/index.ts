@@ -6,6 +6,7 @@ export type {
   CreateMockData2Options,
   MockData2,
   MockData2DataPropertySpec,
+  MockData2FetchOptions,
   MockData2StoreSnapshot,
   MockData2Tags,
   MockElementData2,

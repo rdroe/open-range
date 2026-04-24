@@ -9,11 +9,20 @@ import { tagsKey } from './tags'
 import type {
   CreateMockData2Options,
   MockData2,
+  MockData2FetchOptions,
   MockData2Tags,
   MockPersistenceAdapter2,
   MockRangeElement2,
   TrackedRangeChunk2,
 } from './types'
+
+const runSyntheticDelay = async (opt: MockData2FetchOptions | undefined) => {
+  if (!opt?.syntheticDelayMs) return
+  const raw = opt.syntheticDelayMs()
+  const ms = Math.max(0, Math.floor(Number(raw)))
+  if (!Number.isFinite(ms) || ms <= 0) return
+  await new Promise<void>((r) => setTimeout(r, ms))
+}
 
 function elOverlaps(a: { start: number; end: number }, range: [number, number]): boolean {
   return a.end > range[0] && a.start < range[1]
@@ -186,7 +195,11 @@ export function createMockData2(options?: CreateMockData2Options): MockData2 {
   }
 
   return {
-    async fetchRange(tags: MockData2Tags, range: { start: number; end: number }) {
+    async fetchRange(
+      tags: MockData2Tags,
+      range: { start: number; end: number },
+      options?: MockData2FetchOptions
+    ) {
       const [a, b] = normalizeNumberRange(range.start, range.end)
       if (a >= b) return []
       const tagKey = tagsKey(tags)
@@ -195,6 +208,9 @@ export function createMockData2(options?: CreateMockData2Options): MockData2 {
 
       const covered = state.chunks.map((c) => [c.lo, c.hi] as [number, number])
       const gapList = gapsInRequest(req, mergeSortedIntervals(covered))
+      if (gapList.length > 0) {
+        await runSyntheticDelay(options)
+      }
       const newElsByGap: MockRangeElement2[][] = gapList.map((g) => runGap(g, tagKey))
       const newEls = newElsByGap.flat()
 

@@ -18,6 +18,7 @@ import {
   mock2ToLane,
   scrollLanesMockStore,
   scrollLanesMockTags,
+  scrollLanesSyntheticFetchDelayMs,
 } from './mockData2Bridge'
 import { fixPackByLane } from './packLanes'
 import { groupByLane } from './generateElements'
@@ -92,7 +93,11 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
   const rebuildDataAndPack = async (): Promise<AllLanesLayout> => {
     const t0 = getT0()
     const t1 = getT1()
-    const rows = await scrollLanesMockStore.fetchRange(scrollLanesMockTags, { start: t0, end: t1 })
+    const rows = await scrollLanesMockStore.fetchRange(
+      scrollLanesMockTags,
+      { start: t0, end: t1 },
+      { syntheticDelayMs: scrollLanesSyntheticFetchDelayMs }
+    )
     const all = rows.map(mock2ToLane)
     byLane = groupByLane(all)
     return fixPackByLane(byLane, t0, t1)

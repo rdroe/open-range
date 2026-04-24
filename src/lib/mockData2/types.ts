@@ -66,6 +66,18 @@ export type MockData2StoreSnapshot = {
   chunks: TrackedRangeChunk2[]
 }
 
+/**
+ * Optional behavior for a single `fetchRange` call.
+ */
+export type MockData2FetchOptions = {
+  /**
+   * If this fetch must **generate** new data for at least one domain gap, the returned
+   * number of milliseconds (non-negative integer) is waited before running gap production.
+   * Omitted or when the request is fully satisfied from the store, no wait runs.
+   */
+  syntheticDelayMs?: () => number
+}
+
 export type MockData2 = {
   /**
    * Fulfills a simulated “fetch” for the half-open/closed [start, end] in domain space.
@@ -74,7 +86,8 @@ export type MockData2 = {
    */
   fetchRange(
     tags: MockData2Tags,
-    range: { start: number; end: number }
+    range: { start: number; end: number },
+    options?: MockData2FetchOptions
   ): Promise<MockRangeElement2[]>
   clearForTags(tags: MockData2Tags): Promise<void>
   clearAll(): Promise<void>

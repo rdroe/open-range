@@ -59,3 +59,7 @@ export const scrollLanesMockTags = {
   range: RANGE_ID,
   session: sessionId,
 } as const
+
+/** Simulated network latency before mock gap fill: uniform in [100, 1000] ms. */
+export const scrollLanesSyntheticFetchDelayMs = (): number =>
+  100 + Math.floor(Math.random() * 901)

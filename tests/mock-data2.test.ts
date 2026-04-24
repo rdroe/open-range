@@ -70,6 +70,15 @@ describe('mockData2', () => {
     }
   })
 
+  it('syntheticDelayMs runs only when gaps must be generated', async () => {
+    const t0 = performance.now()
+    await api.fetchRange(tags, { start: 0, end: 1 }, { syntheticDelayMs: () => 20 })
+    expect(performance.now() - t0).toBeGreaterThanOrEqual(15)
+    const t1 = performance.now()
+    await api.fetchRange(tags, { start: 0, end: 1 }, { syntheticDelayMs: () => 20 })
+    expect(performance.now() - t1).toBeLessThan(5)
+  })
+
   it('generateElementsForGap overrides default and ignores dataPropertyGenerators', async () => {
     const custom = createMockData2({
       dataPropertyGenerators: [['ignored', () => 1]],
