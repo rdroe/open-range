@@ -28,8 +28,6 @@ type LaneElement = {
   laneId: 0 | 1 | 2 | 3 | 4
 }
 
-type RowState = { lastEnd: number; maxH: number; elements: LaneElement[] }
-
 type LanePackResult = {
   items: { el: LaneElement; top: number }[]
   laneHeight: number
@@ -161,40 +159,28 @@ const generateElementsForRange = (t0: number, t1: number): LaneElement[] => {
   return out
 }
 
+const xOverlap1d = (a: { startX: number; endX: number }, b: { startX: number; endX: number }) => {
+  return Math.max(a.startX, b.startX) < Math.min(a.endX, b.endX)
+}
+
 const packOneLane = (elements: LaneElement[], packStart: number, packEnd: number): LanePackResult => {
   const vis = elements.filter((e) => e.endX > packStart && e.startX < packEnd)
   if (vis.length === 0) {
     return { items: [], laneHeight: 32 }
   }
-  const sorted = [...vis].sort((a, b) => a.startX - b.startX)
-  const rows: RowState[] = []
-  for (const el of sorted) {
-    let bestIdx = -1
-    for (let r = 0; r < rows.length; r++) {
-      const row = rows[r]!
-      if (row.lastEnd <= el.startX) {
-        bestIdx = r
-        break
-      }
-    }
-    if (bestIdx < 0) {
-      rows.push({ lastEnd: el.endX, maxH: el.height, elements: [el] })
-    } else {
-      const row = rows[bestIdx]!
-      row.elements.push(el)
-      row.lastEnd = Math.max(...row.elements.map((e) => e.endX))
-      row.maxH = Math.max(row.maxH, el.height)
-    }
-  }
+  const sorted = [...vis].sort(
+    (a, b) => a.startX - b.startX || a.endX - b.endX || a.id.localeCompare(b.id)
+  )
   const items: { el: LaneElement; top: number }[] = []
-  let y = 0
-  for (const row of rows) {
-    for (const el of row.elements) {
-      items.push({ el, top: y })
+  for (const el of sorted) {
+    let y = 0
+    for (const p of items) {
+      if (xOverlap1d(p.el, el)) y = Math.max(y, p.top + p.el.height)
     }
-    y += row.maxH
+    items.push({ el, top: y })
   }
-  return { items, laneHeight: Math.max(32, y) }
+  const hMax = items.reduce((m, p) => Math.max(m, p.top + p.el.height), 0)
+  return { items, laneHeight: Math.max(32, hMax) }
 }
 
 type AllLanesLayout = { lanes: [LanePackResult, LanePackResult, LanePackResult, LanePackResult, LanePackResult] }
