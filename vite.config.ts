@@ -39,6 +39,9 @@ export default defineConfig(({ mode }) => {
             new URL('./worker-open-range.html', import.meta.url)
           ),
           scrollDemo: fileURLToPath(new URL('./scroll-demo.html', import.meta.url)),
+          scrollLanesDemo: fileURLToPath(
+            new URL('./scroll-lanes-demo.html', import.meta.url)
+          ),
         },
       },
     },

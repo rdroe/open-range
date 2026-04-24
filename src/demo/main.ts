@@ -95,6 +95,14 @@ function buildHome() {
   standaloneScroll.href = '/scroll-demo.html'
   standaloneScroll.textContent = 'Scroll demo'
   nav.appendChild(standaloneScroll)
+  const span4 = document.createElement('span')
+  span4.className = 'demo-home-muted'
+  span4.textContent = ' · '
+  nav.appendChild(span4)
+  const standaloneScrollLanes = document.createElement('a')
+  standaloneScrollLanes.href = '/scroll-lanes-demo.html'
+  standaloneScrollLanes.textContent = 'Scroll lanes (packing)'
+  nav.appendChild(standaloneScrollLanes)
 
   header.appendChild(title)
   header.appendChild(controls)
