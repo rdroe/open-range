@@ -63,7 +63,7 @@ Checklist:
 
 - [ ] `src/demo/<name>Demo.ts` exports `mount<Name>Demo(options)`.
 - [ ] `src/demo/<name>DemoEntry.ts` imports and invokes it.
-- [ ] `<name>-demo.html` at repo root with `<script type="module" src="/src/demo/<name>DemoEntry.ts">`.
+- [ ] `<name>-demo.html` at repo root with `<script type="module" src="/src/demo/<name>DemoEntry.ts">` (or `src/demo/<subfolder>/...` if the demo is split into a folder; see [src/demo/scrollLanes/](src/demo/scrollLanes/)).
 - [ ] Register the new HTML entry in `vite.config.ts` under `rollupOptions.input`.
 - [ ] Add a link on the home page (`src/demo/main.ts`) so the demo is discoverable.
 - [ ] If the demo mounts inline, accept `embedded: true` and skip the standalone chrome (back-link, full-page background) in that mode.

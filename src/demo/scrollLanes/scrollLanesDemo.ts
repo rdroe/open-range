@@ -1,201 +1,33 @@
-import { subscribeToRangeInitialization } from '../lib/readableRange'
+import { subscribeToRangeInitialization } from '../../lib/readableRange'
 import {
   alignedTickStops,
   registerTicks,
   subscribeToTicksInitialization,
   subscribeToTicksLoadingComplete,
   ticksStore,
-} from '../lib/ticks'
+} from '../../lib/ticks'
 import {
   DimensionalRange,
   registerDimensionalRange,
   updateDimensionalRange,
   updateDimensionalRangeParams,
-} from '../lib/dimensionalRange'
+} from '../../lib/dimensionalRange'
+import { LANE_COLORS, RANGE_ID } from './constants'
+import { fixPackByLane } from './packLanes'
+import { generateElementsForRange, groupByLane } from './generateElements'
+import {
+  contentPixels,
+  defaultInitialScrollLeft,
+  scrollLeftToVisDomain,
+  timelineEnd as domainTimelineEnd,
+  timelineStart as domainTimelineStart,
+  viewablePixels,
+  xToPx as mapXToContentPx,
+  zoneName,
+} from './scrollMapping'
+import type { AllLanesLayout, LaneElement, MountScrollLanesDemoOptions } from './types'
 
-const RANGE_ID = 'scrollLanesDemo'
-
-export type MountScrollLanesDemoOptions = {
-  embedded?: boolean
-}
-
-type LaneElement = {
-  id: string
-  tag3: string
-  startX: number
-  endX: number
-  height: number
-  laneId: 0 | 1 | 2 | 3 | 4
-}
-
-type LanePackResult = {
-  items: { el: LaneElement; top: number }[]
-  laneHeight: number
-}
-
-const LANE_COLORS = [
-  'rgba(96,165,250,0.45)',
-  'rgba(52,211,153,0.45)',
-  'rgba(251,191,36,0.5)',
-  'rgba(192,132,252,0.45)',
-  'rgba(248,113,113,0.45)',
-] as const
-
-const mulberry32 = (a: number) => {
-  return () => {
-    let t = (a += 0x6d2b79f5)
-    t = Math.imul(t ^ (t >>> 15), t | 1)
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
-}
-
-const groupByLane = (all: LaneElement[]): LaneElement[][] => {
-  const by: LaneElement[][] = [[], [], [], [], []]
-  for (const e of all) {
-    by[e.laneId]!.push(e)
-  }
-  return by
-}
-
-const DOMAIN_GRID_STEP = 0.85
-
-const makeTag3 = (seed: number) => {
-  const a = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-  let u = seed >>> 0
-  let t = ''
-  for (let i = 0; i < 3; i++) {
-    t += a[u % 36]!
-    u = (Math.imul(u, 0x1f) + 0x7e1 + i) >>> 0
-  }
-  return t
-}
-
-const widthScale2to5 = (s0: number) => 2 + mulberry32(s0)() * 3
-
-const blockHeightForSeed = (s0: number) => {
-  const r0 = mulberry32((s0 * 0x1f) >>> 0)()
-  const r1 = mulberry32((s0 * 0x2d) >>> 0)()
-  return 10 + Math.floor(r0 * 46) + Math.floor(r1 * 28)
-}
-
-const cellKeySeed = (g: number, lane: number, k: number) => {
-  return (Math.imul(g, 0x9e37) + Math.imul(lane, 0x1f) + (k * 0x1d) + 0x6d2b79f5) >>> 0
-}
-
-const DENSE_LANE: LaneElement['laneId'] = 2
-
-const generateElementsForRange = (t0: number, t1: number): LaneElement[] => {
-  if (t1 - t0 <= 0 || !Number.isFinite(t0) || !Number.isFinite(t1)) return []
-  const gMin = Math.floor(t0 / DOMAIN_GRID_STEP)
-  const gMax = Math.ceil(t1 / DOMAIN_GRID_STEP)
-  const out: LaneElement[] = []
-  for (let g = gMin; g < gMax; g++) {
-    const cell0 = g * DOMAIN_GRID_STEP
-    const cell1 = (g + 1) * DOMAIN_GRID_STEP
-    if (cell1 <= t0 || cell0 >= t1) continue
-    for (let lane = 0; lane < 5; lane++) {
-      const dense = lane === DENSE_LANE
-      const kMax = dense ? 7 : 2
-      const skipP = dense ? 0.1 : 0.9
-      for (let k = 0; k < kMax; k++) {
-        const s0 = cellKeySeed(g, lane, k)
-        const r1 = mulberry32(s0)()
-        const r2 = mulberry32(s0 * 0x1f)()
-        if (r1 > skipP) continue
-        const inner = cell1 - cell0
-        if (inner < 0.2) continue
-        let w: number
-        let s: number
-        if (dense) {
-          w = 0.07 + r2 * 0.28
-          w = Math.min(w, Math.max(0.06, inner * 0.9))
-          const u = mulberry32((s0 * 0x1f) >>> 0)()
-          const u2 = mulberry32((s0 * 0x3a) >>> 0)()
-          s = cell0 + u * Math.max(0, inner * 0.55 - w) * 0.95 + u2 * inner * 0.2
-        } else {
-          w = 0.15 + r2 * Math.min(inner * 0.75, 9)
-          s = cell0 + mulberry32((s0 * 0x1f) >>> 0)() * (inner - w)
-        }
-        w = Math.min(w * widthScale2to5(s0), inner * 0.98)
-        s = Math.min(Math.max(s, cell0), cell1 - w)
-        if (s < cell0 || s + w > cell1) continue
-        if (s + w <= t0 || s >= t1) continue
-        const laneId = lane as LaneElement['laneId']
-        const h = blockHeightForSeed(s0) + (dense ? 4 + (k & 1) * 3 : 0)
-        out.push({
-          id: `c${g}-L${lane}-k${k}`,
-          tag3: makeTag3(s0),
-          startX: s,
-          endX: s + w,
-          height: h,
-          laneId,
-        })
-      }
-    }
-  }
-  for (let g = gMin; g < gMax; g++) {
-    const cell0 = g * DOMAIN_GRID_STEP
-    const cell1 = (g + 1) * DOMAIN_GRID_STEP
-    if (cell1 <= t0 || cell0 >= t1) continue
-    const inner = cell1 - cell0
-    if (inner < 0.3) continue
-    const s0 = cellKeySeed(g, DENSE_LANE, 90)
-    if (mulberry32(s0)() > 0.35) continue
-    const wRaw = 0.18 + mulberry32(s0 * 2)() * 0.22
-    const w = Math.min(wRaw * widthScale2to5(s0 * 0x1e), inner * 0.98)
-    const t0b = cell0 + inner * 0.1
-    if (t0b + w > cell1 || t0b + w <= t0 || t0b >= t1) continue
-    const cSeed = cellKeySeed(g, DENSE_LANE, 91)
-    out.push({
-      id: `c${g}-Ld-chord`,
-      tag3: makeTag3(cSeed),
-      startX: t0b,
-      endX: t0b + w,
-      height: blockHeightForSeed(s0) + 8,
-      laneId: DENSE_LANE,
-    })
-  }
-  return out
-}
-
-const xOverlap1d = (a: { startX: number; endX: number }, b: { startX: number; endX: number }) => {
-  return Math.max(a.startX, b.startX) < Math.min(a.endX, b.endX)
-}
-
-const packOneLane = (elements: LaneElement[], packStart: number, packEnd: number): LanePackResult => {
-  const vis = elements.filter((e) => e.endX > packStart && e.startX < packEnd)
-  if (vis.length === 0) {
-    return { items: [], laneHeight: 32 }
-  }
-  const sorted = [...vis].sort(
-    (a, b) => a.startX - b.startX || a.endX - b.endX || a.id.localeCompare(b.id)
-  )
-  const items: { el: LaneElement; top: number }[] = []
-  for (const el of sorted) {
-    let y = 0
-    for (const p of items) {
-      if (xOverlap1d(p.el, el)) y = Math.max(y, p.top + p.el.height)
-    }
-    items.push({ el, top: y })
-  }
-  const hMax = items.reduce((m, p) => Math.max(m, p.top + p.el.height), 0)
-  return { items, laneHeight: Math.max(32, hMax) }
-}
-
-type AllLanesLayout = { lanes: [LanePackResult, LanePackResult, LanePackResult, LanePackResult, LanePackResult] }
-
-const fixPackByLane = (byLane: LaneElement[][], packStart: number, packEnd: number): AllLanesLayout => {
-  return {
-    lanes: [
-      packOneLane(byLane[0]!, packStart, packEnd),
-      packOneLane(byLane[1]!, packStart, packEnd),
-      packOneLane(byLane[2]!, packStart, packEnd),
-      packOneLane(byLane[3]!, packStart, packEnd),
-      packOneLane(byLane[4]!, packStart, packEnd),
-    ],
-  } as AllLanesLayout
-}
+export type { MountScrollLanesDemoOptions } from './types'
 
 export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) => {
   const { embedded = false } = options
@@ -216,44 +48,37 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
   let currentRangeValue = originalRangeValue
   let layout: AllLanesLayout | null = null
 
-  const viewablePixels = () => state.aperturePx * 2
-  const contentPixels = () =>
-    viewablePixels() * (state.leftPrefetchFactor + 1 + state.rightPrefetchFactor)
-
-  const timelineStart = () =>
-    currentRangeValue -
-    state.viewableDomainWidth / 2 -
-    state.leftPrefetchFactor * state.viewableDomainWidth
-  const timelineEnd = () =>
-    currentRangeValue +
-    state.viewableDomainWidth / 2 +
-    state.rightPrefetchFactor * state.viewableDomainWidth
-
-  const domainSpan = () => timelineEnd() - timelineStart()
-  const xToPx = (x: number) => {
-    const s = domainSpan()
-    if (s <= 0) return 0
-    return ((x - timelineStart()) / s) * contentPixels()
-  }
-
-  const scrollLeftToVisDomain = (scrollLeft: number): { visStart: number; visEnd: number } => {
-    const t0 = timelineStart()
-    const span = domainSpan()
-    const c = contentPixels()
-    const a = state.aperturePx
-    const p0 = (scrollLeft / c) * span
-    const p1 = ((scrollLeft + a) / c) * span
-    return { visStart: t0 + p0, visEnd: t0 + p1 }
-  }
-
-  const defaultInitialScrollLeft = () => {
-    const vp = viewablePixels()
-    return state.leftPrefetchFactor * vp + vp / 4
-  }
+  const getViewablePx = () => viewablePixels(state.aperturePx)
+  const getContentPx = () =>
+    contentPixels(getViewablePx(), state.leftPrefetchFactor, state.rightPrefetchFactor)
+  const getT0 = () =>
+    domainTimelineStart(
+      currentRangeValue,
+      state.viewableDomainWidth,
+      state.leftPrefetchFactor
+    )
+  const getT1 = () =>
+    domainTimelineEnd(
+      currentRangeValue,
+      state.viewableDomainWidth,
+      state.rightPrefetchFactor
+    )
+  const getDomainSpan = () => getT1() - getT0()
+  const mapXToPx = (x: number) => mapXToContentPx(x, getT0(), getT1(), getContentPx())
+  const visDomainFromScroll = (scrollLeft: number) =>
+    scrollLeftToVisDomain(
+      scrollLeft,
+      getT0(),
+      getDomainSpan(),
+      getContentPx(),
+      state.aperturePx
+    )
+  const initialScrollLeft = () => defaultInitialScrollLeft(state.leftPrefetchFactor, getViewablePx())
+  const zoneFor = (scrollLeft: number) => zoneName(scrollLeft, state.leftPrefetchFactor, getViewablePx())
 
   const rebuildDataAndPack = (): AllLanesLayout => {
-    const t0 = timelineStart()
-    const t1 = timelineEnd()
+    const t0 = getT0()
+    const t1 = getT1()
     const all = generateElementsForRange(t0, t1)
     byLane = groupByLane(all)
     return fixPackByLane(byLane, t0, t1)
@@ -463,21 +288,12 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
     laneEls.push(lane)
   }
 
-  const zoneName = (scrollLeft: number): 'nextLeft' | 'viewable' | 'nextRight' => {
-    const viewablePx = viewablePixels()
-    const leftEdge = state.leftPrefetchFactor * viewablePx
-    const rightEdge = leftEdge + viewablePx
-    if (scrollLeft < leftEdge) return 'nextLeft'
-    if (scrollLeft > rightEdge) return 'nextRight'
-    return 'viewable'
-  }
-
   const updateReadout = (scrollLeft: number) => {
-    const { visStart, visEnd } = scrollLeftToVisDomain(scrollLeft)
-    const tf0 = timelineStart()
-    const tf1 = timelineEnd()
+    const { visStart, visEnd } = visDomainFromScroll(scrollLeft)
+    const tf0 = getT0()
+    const tf1 = getT1()
     if (lockVRef) {
-      lockVRef.textContent = `scrollLeft=${Math.round(scrollLeft)} zone=${zoneName(scrollLeft)}  center=${currentRangeValue.toFixed(2)} n=${shiftCount}`
+      lockVRef.textContent = `scrollLeft=${Math.round(scrollLeft)} zone=${zoneFor(scrollLeft)}  center=${currentRangeValue.toFixed(2)} n=${shiftCount}`
     }
     if (visVRef) {
       visVRef.textContent = `aperture ${visStart.toFixed(1)}–${visEnd.toFixed(1)}  ·  full span (packed) ${tf0.toFixed(1)}–${tf1.toFixed(1)}`
@@ -518,8 +334,8 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
       lane.style.height = `${pack.laneHeight}px`
       lane.style.position = 'relative'
       for (const { el, top } of pack.items) {
-        const wPx = xToPx(el.endX) - xToPx(el.startX)
-        const left = xToPx(el.startX)
+        const wPx = mapXToPx(el.endX) - mapXToPx(el.startX)
+        const left = mapXToPx(el.startX)
         const b = document.createElement('div')
         b.setAttribute('data-testid', `scroll-lane-block-${el.id}`)
         const cap = `${el.tag3} ${el.startX.toFixed(1)} ${el.endX.toFixed(1)} ${el.height}`
@@ -553,12 +369,12 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
 
   const drawTicks = () => {
     tickLayer.innerHTML = ''
-    const tStart = timelineStart()
-    const tEnd = timelineEnd()
+    const tStart = getT0()
+    const tEnd = getT1()
     const step = state.tickStep
     if (step <= 0) return
     for (const v of alignedTickStops(tStart, tEnd, step, 0)) {
-      const x = xToPx(v)
+      const x = mapXToPx(v)
       const line = document.createElement('div')
       line.style.cssText = `
         position: absolute;
@@ -587,7 +403,7 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
 
   const drawZones = () => {
     zonesLayer.innerHTML = ''
-    const viewablePx = viewablePixels()
+    const viewablePx = getViewablePx()
     const leftPx = state.leftPrefetchFactor * viewablePx
     const rightStartPx = leftPx + viewablePx
     const rightPx = state.rightPrefetchFactor * viewablePx
@@ -607,7 +423,7 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
     drawZones()
     drawTicks()
     paintLaneBlocks(L)
-    centerLine.style.left = `${xToPx(currentRangeValue)}px`
+    centerLine.style.left = `${mapXToPx(currentRangeValue)}px`
   }
 
   const fullRender = () => {
@@ -620,7 +436,7 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
         layout.lanes[4]!.laneHeight
       : 5 * 32
     const cy = totalH
-    content.style.width = `${contentPixels()}px`
+    content.style.width = `${getContentPx()}px`
     content.style.minHeight = `${cy}px`
     tickLayer.style.height = `${cy}px`
     zonesLayer.style.height = `${cy}px`
@@ -658,7 +474,7 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
   const onShift = async (shift: number, scrollLeft: number) => {
     if (shift === 0) return
     setLock(true)
-    const newScrollLeft = scrollLeft - shift * viewablePixels()
+    const newScrollLeft = scrollLeft - shift * getViewablePx()
     const L = await awaitTicksAndRebuildAfter(() => {
       shiftCount += shift
       currentRangeValue = originalRangeValue + shiftCount * state.viewableDomainWidth
@@ -676,6 +492,10 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
 
   let scrollEndTimer: number | undefined
   let suppressScroll = false
+  const activePointerOnAperture = new Set<number>()
+  let lastWheelTime = 0
+  const isWheelDrivenWindow = () => performance.now() - lastWheelTime < 520
+
   const onScrollEndCheckShift = () => {
     const sl = aperture.scrollLeft
     if (suppressScroll) {
@@ -683,15 +503,45 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
       return
     }
     if (scrollLocked) return
-    const viewablePx = viewablePixels()
+    const viewablePx = getViewablePx()
     const leftEdge = state.leftPrefetchFactor * viewablePx
     const rightEdge = leftEdge + viewablePx
     let shift = 0
     if (sl < leftEdge) shift = -1
     else if (sl > rightEdge) shift = 1
     if (shift === 0) return
+    if (activePointerOnAperture.size > 0) {
+      if (isWheelDrivenWindow()) {
+        void onShift(shift, sl)
+      }
+      return
+    }
     void onShift(shift, sl)
   }
+
+  const flushScrollShiftAfterPointer = () => {
+    if (scrollEndTimer !== undefined) {
+      window.clearTimeout(scrollEndTimer)
+      scrollEndTimer = undefined
+    }
+    onScrollEndCheckShift()
+  }
+
+  aperture.addEventListener(
+    'pointerdown',
+    (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return
+      activePointerOnAperture.add(e.pointerId)
+    },
+    true
+  )
+  const pointerEnd = (e: PointerEvent) => {
+    if (activePointerOnAperture.delete(e.pointerId) && activePointerOnAperture.size === 0) {
+      flushScrollShiftAfterPointer()
+    }
+  }
+  window.addEventListener('pointerup', pointerEnd)
+  window.addEventListener('pointercancel', pointerEnd)
 
   const applyParams = () => {
     const dr: DimensionalRange = {
@@ -706,7 +556,7 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
       const L = await awaitTicksAndRebuildAfter(() => {
         updateDimensionalRangeParams(RANGE_ID, dr)
       })
-      const sl0 = defaultInitialScrollLeft()
+      const sl0 = initialScrollLeft()
       const ts = ticksStore[RANGE_ID]
       setTickReadout(ts ? ts.ticks.viewableRange.length : 0)
       layout = L
@@ -733,6 +583,7 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
         return
       }
       e.preventDefault()
+      lastWheelTime = performance.now()
       const d = e.deltaX !== 0 ? e.deltaX : e.deltaY
       aperture.scrollLeft += d
     },
@@ -771,7 +622,7 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
   })
 
   subscribeToTicksInitialization(RANGE_ID, () => {
-    const sl0 = defaultInitialScrollLeft()
+    const sl0 = initialScrollLeft()
     setLock(true)
     const L = rebuildDataAndPack()
     const ts = ticksStore[RANGE_ID]
