@@ -14,11 +14,13 @@ export default defineConfig({
       reporter: ['text', 'html'],
       reportsDirectory: './coverage',
       include: ['src/lib/**/*.ts'],
+    /** mockData2 `types.ts` is type-only; v8 does not attribute it. */
+    exclude: ['src/lib/mockData2/types.ts', '**/*.d.ts'],
       thresholds: {
         statements: 100,
         branches: 100,
         lines: 100,
-        functions: 95,
+        functions: 100,
       },
     },
   },

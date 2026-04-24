@@ -45,6 +45,7 @@ const dedupeElements = (els: MockRangeElement2[]): MockRangeElement2[] => {
 const touchEps = (u: number) => 1e-9 * (1 + Math.abs(u))
 
 const consolidateChunks = (chunks: TrackedRangeChunk2[]): TrackedRangeChunk2[] => {
+  /* v8 ignore next — public fetch paths always pass ≥1 chunk; defensive guard */
   if (chunks.length === 0) return []
   const s = [...chunks].sort((a, b) => a.lo - b.lo)
   const out: TrackedRangeChunk2[] = []

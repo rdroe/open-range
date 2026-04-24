@@ -27,6 +27,7 @@ export const gapsInRequest = (request: [number, number], covered: [number, numbe
   let cursor = r0
   const gaps: [number, number][] = []
   for (const [c0, c1] of merged) {
+    /* v8 ignore next — same covered span after merge; defensive if caller passed non-normalized intervals */
     if (c1 <= cursor) continue
     if (c0 >= r1) break
     if (cursor < c0) gaps.push([cursor, Math.min(c0, r1)])
