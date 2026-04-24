@@ -76,6 +76,12 @@ export type MockData2FetchOptions = {
    * Omitted or when the request is fully satisfied from the store, no wait runs.
    */
   syntheticDelayMs?: () => number
+  /**
+   * Invoked once, synchronously, when a **non-zero** synthetic delay is about to run
+   * (gaps to fill, valid `syntheticDelayMs` result). Useful for UI countdowns; omitted when
+   * the request is cache-cold and no wait runs.
+   */
+  onSyntheticDelayScheduled?: (ms: number) => void
 }
 
 export type MockData2 = {

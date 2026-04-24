@@ -70,6 +70,20 @@ describe('mockData2', () => {
     }
   })
 
+  it('onSyntheticDelayScheduled is called with the floored delay when gaps are generated', async () => {
+    let n = 0
+    let got = 0
+    await api.fetchRange(tags, { start: 0, end: 1 }, {
+      syntheticDelayMs: () => 37,
+      onSyntheticDelayScheduled: (ms) => {
+        n++
+        got = ms
+      },
+    })
+    expect(n).toBe(1)
+    expect(got).toBe(37)
+  })
+
   it('syntheticDelayMs runs only when gaps must be generated', async () => {
     const t0 = performance.now()
     await api.fetchRange(tags, { start: 0, end: 1 }, { syntheticDelayMs: () => 20 })

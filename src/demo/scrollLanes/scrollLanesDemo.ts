@@ -90,17 +90,53 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
   const initialScrollLeft = () => defaultInitialScrollLeft(state.leftPrefetchFactor, getViewablePx())
   const zoneFor = (scrollLeft: number) => zoneName(scrollLeft, state.leftPrefetchFactor, getViewablePx())
 
+  const mockApiDelayUi = { el: null as HTMLSpanElement | null, rafId: 0 }
+  const clearMockApiDelayCountdown = () => {
+    if (mockApiDelayUi.rafId !== 0) {
+      cancelAnimationFrame(mockApiDelayUi.rafId)
+      mockApiDelayUi.rafId = 0
+    }
+    if (mockApiDelayUi.el) mockApiDelayUi.el.textContent = '\u2014'
+  }
+
   const rebuildDataAndPack = async (): Promise<AllLanesLayout> => {
     const t0 = getT0()
     const t1 = getT1()
-    const rows = await scrollLanesMockStore.fetchRange(
-      scrollLanesMockTags,
-      { start: t0, end: t1 },
-      { syntheticDelayMs: scrollLanesSyntheticFetchDelayMs }
-    )
-    const all = rows.map(mock2ToLane)
-    byLane = groupByLane(all)
-    return fixPackByLane(byLane, t0, t1)
+    clearMockApiDelayCountdown()
+    try {
+      const rows = await scrollLanesMockStore.fetchRange(
+        scrollLanesMockTags,
+        { start: t0, end: t1 },
+        {
+          syntheticDelayMs: scrollLanesSyntheticFetchDelayMs,
+          onSyntheticDelayScheduled: (ms) => {
+            clearMockApiDelayCountdown()
+            const end = performance.now() + ms
+            const run = () => {
+              const el = mockApiDelayUi.el
+              if (!el) {
+                mockApiDelayUi.rafId = 0
+                return
+              }
+              const left = end - performance.now()
+              if (left > 0) {
+                el.textContent = `${Math.ceil(left)}ms`
+                mockApiDelayUi.rafId = requestAnimationFrame(run)
+              } else {
+                el.textContent = '0ms'
+                mockApiDelayUi.rafId = 0
+              }
+            }
+            mockApiDelayUi.rafId = requestAnimationFrame(run)
+          },
+        }
+      )
+      const all = rows.map(mock2ToLane)
+      byLane = groupByLane(all)
+      return fixPackByLane(byLane, t0, t1)
+    } finally {
+      clearMockApiDelayCountdown()
+    }
   }
 
   const layoutRoot = document.createElement('div')
@@ -196,7 +232,7 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
   wipeMockBtn.textContent = 'Wipe mock session & regenerate'
   wipeMockBtn.setAttribute('data-testid', 'scroll-lanes-wipe-mock')
   wipeMockBtn.title =
-    'Clear persisted scroll-lanes mock data for this browser session, then refetch. Keeps scroll position. Input is blocked until layout is ready.'
+    'Clear persisted scroll-lanes mock data for this browser session, then refetch. You can still pan while the mock refetches; only the swimlane redraw waits.'
   wipeMockBtn.style.cssText = `
     padding: 6px 12px;
     border-radius: 6px;
@@ -255,7 +291,7 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
   const r2 = mk('aperture slice + packed span:')
   const r3 = mk('ticks in viewable (last load):')
   const r4 = mk('lane stack height (px):')
-  const r5 = mk('aperture pointer events:')
+  const r5 = mk('layout rebuild (pan still works):')
   r5.row.style.flexWrap = 'nowrap'
   r5.row.style.alignItems = 'center'
   r5.v.style.flex = '1 1 0'
@@ -266,11 +302,16 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
   r5.v.style.overflow = 'hidden'
   r5.v.style.whiteSpace = 'nowrap'
   r5.v.style.textOverflow = 'ellipsis'
+  const r6 = mk('synthetic API wait:')
+  r6.v.setAttribute('data-testid', 'scroll-lanes-synthetic-wait')
+  r6.v.textContent = '\u2014'
+  mockApiDelayUi.el = r6.v
   statusRow.appendChild(r1.row)
   statusRow.appendChild(r2.row)
   statusRow.appendChild(r3.row)
   statusRow.appendChild(r4.row)
   statusRow.appendChild(r5.row)
+  statusRow.appendChild(r6.row)
   layoutRoot.appendChild(statusRow)
   const lockVRef = r1.v
   const visVRef = r2.v
@@ -366,14 +407,13 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
     if (laneHRef) laneHRef.textContent = String(h)
   }
 
-  let scrollLocked = false
-  const setLock = (on: boolean) => {
-    scrollLocked = on
-    aperture.style.pointerEvents = on ? 'none' : ''
+  let rebuildInProgress = false
+  const setRebuildInProgress = (on: boolean) => {
+    rebuildInProgress = on
     if (lockStateRef) {
-      lockStateRef.textContent = on ? 'blocked' : 'auto'
+      lockStateRef.textContent = on ? 'working' : 'auto'
       lockStateRef.title = on
-        ? 'Input paused until tick load and lane layout finish (shift or param change).'
+        ? 'Tick load and lane pack in progress; the aperture still scrolls. A new sector shift is deferred until this finishes.'
         : 'Aperture accepts pointer and wheel input.'
     }
   }
@@ -508,8 +548,7 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
   }
 
   const wipeMockSessionAndRegenerate = async () => {
-    setLock(true)
-    const savedScroll = aperture.scrollLeft
+    setRebuildInProgress(true)
     try {
       bumpScrollLanesDataEpoch()
       await scrollLanesMockStore.clearForTags(scrollLanesMockTags)
@@ -519,11 +558,11 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
       layout = L
       fullRender()
       suppressScroll = true
-      aperture.scrollLeft = savedScroll
-      updateReadout(savedScroll)
+      const sl = aperture.scrollLeft
+      updateReadout(sl)
       persistUi()
     } finally {
-      setLock(false)
+      setRebuildInProgress(false)
     }
   }
 
@@ -545,6 +584,23 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
     return Promise.all([p, rebuildDataAndPack()]).then((r) => r[1] as AllLanesLayout)
   }
 
+  const activeScrollbarPointerIds = new Set<number>()
+  let pendingSectorShiftCommit: { shift: number; L: AllLanesLayout } | null = null
+  let scrollEndTimer: number | undefined
+  let suppressScroll = false
+
+  const applySectorShiftVisualCommit = (shift: number, L: AllLanesLayout) => {
+    const ts = ticksStore[RANGE_ID]
+    setTickReadout(ts ? ts.ticks.viewableRange.length : 0)
+    layout = L
+    fullRender()
+    suppressScroll = true
+    const newScrollLeft = aperture.scrollLeft - shift * getViewablePx()
+    aperture.scrollLeft = newScrollLeft
+    updateReadout(newScrollLeft)
+    persistUi()
+  }
+
   const clampScroll = () => {
     const m = Math.max(0, content.scrollWidth - aperture.clientWidth)
     if (m <= 0) return
@@ -563,31 +619,40 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
     }, 200)
   }
 
-  const onShift = async (shift: number, scrollLeft: number) => {
+  const onShift = async (shift: number, _scrollAtDecision: number) => {
     if (shift === 0) return
-    setLock(true)
-    const newScrollLeft = scrollLeft - shift * getViewablePx()
-    const L = await awaitTicksAndRebuildAfter(() => {
-      shiftCount += shift
-      currentRangeValue = originalRangeValue + shiftCount * state.viewableDomainWidth
-      updateDimensionalRange(RANGE_ID, currentRangeValue)
-    })
-    const ts = ticksStore[RANGE_ID]
-    setTickReadout(ts ? ts.ticks.viewableRange.length : 0)
-    layout = L
-    fullRender()
-    suppressScroll = true
-    aperture.scrollLeft = newScrollLeft
-    updateReadout(newScrollLeft)
-    persistUi()
-    setLock(false)
+    setRebuildInProgress(true)
+    try {
+      const L = await awaitTicksAndRebuildAfter(() => {
+        shiftCount += shift
+        currentRangeValue = originalRangeValue + shiftCount * state.viewableDomainWidth
+        updateDimensionalRange(RANGE_ID, currentRangeValue)
+      })
+      if (activeScrollbarPointerIds.size > 0) {
+        pendingSectorShiftCommit = { shift, L }
+      } else {
+        applySectorShiftVisualCommit(shift, L)
+        setRebuildInProgress(false)
+      }
+    } catch (e) {
+      pendingSectorShiftCommit = null
+      setRebuildInProgress(false)
+      throw e
+    }
   }
 
-  let scrollEndTimer: number | undefined
-  let suppressScroll = false
   const activePointerOnAperture = new Set<number>()
   let lastWheelTime = 0
   const isWheelDrivenWindow = () => performance.now() - lastWheelTime < 520
+  const pointerDownOnScrollGutter = (e: PointerEvent) => {
+    const r = aperture.getBoundingClientRect()
+    const t = 20
+    const needH = aperture.scrollWidth > aperture.clientWidth + 1
+    const needV = aperture.scrollHeight > aperture.clientHeight + 1
+    if (needH && e.clientY >= r.bottom - t) return true
+    if (needV && e.clientX >= r.right - t) return true
+    return false
+  }
 
   const onScrollEndCheckShift = () => {
     const sl = aperture.scrollLeft
@@ -595,7 +660,7 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
       suppressScroll = false
       return
     }
-    if (scrollLocked) return
+    if (rebuildInProgress) return
     const viewablePx = getViewablePx()
     const leftEdge = state.leftPrefetchFactor * viewablePx
     const rightEdge = leftEdge + viewablePx
@@ -624,11 +689,23 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
     'pointerdown',
     (e) => {
       if (e.pointerType === 'mouse' && e.button !== 0) return
+      if (pointerDownOnScrollGutter(e)) {
+        activeScrollbarPointerIds.add(e.pointerId)
+        return
+      }
       activePointerOnAperture.add(e.pointerId)
     },
     true
   )
   const pointerEnd = (e: PointerEvent) => {
+    if (activeScrollbarPointerIds.delete(e.pointerId) && activeScrollbarPointerIds.size === 0) {
+      if (pendingSectorShiftCommit) {
+        const { shift, L } = pendingSectorShiftCommit
+        pendingSectorShiftCommit = null
+        applySectorShiftVisualCommit(shift, L)
+        setRebuildInProgress(false)
+      }
+    }
     if (activePointerOnAperture.delete(e.pointerId) && activePointerOnAperture.size === 0) {
       flushScrollShiftAfterPointer()
     }
@@ -645,7 +722,7 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
       rightPrefetchFactor: state.rightPrefetchFactor,
     }
     void (async () => {
-      setLock(true)
+      setRebuildInProgress(true)
       const L = await awaitTicksAndRebuildAfter(() => {
         currentRangeValue = originalRangeValue + shiftCount * state.viewableDomainWidth
         updateDimensionalRange(RANGE_ID, currentRangeValue)
@@ -660,12 +737,12 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
       aperture.scrollLeft = sl0
       updateReadout(sl0)
       persistUi()
-      setLock(false)
+      setRebuildInProgress(false)
     })()
   }
 
   const resetLayoutToDefaults = async () => {
-    setLock(true)
+    setRebuildInProgress(true)
     try {
       clearScrollLanesUiStorage()
       Object.assign(state, DEFAULT_SCROLL_LANES_UI)
@@ -695,7 +772,7 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
       updateReadout(sl0)
       persistUi()
     } finally {
-      setLock(false)
+      setRebuildInProgress(false)
     }
   }
 
@@ -714,10 +791,6 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
   aperture.addEventListener(
     'wheel',
     (e) => {
-      if (scrollLocked) {
-        e.preventDefault()
-        return
-      }
       e.preventDefault()
       lastWheelTime = performance.now()
       const d = e.deltaX !== 0 ? e.deltaX : e.deltaY
@@ -759,7 +832,7 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
 
   subscribeToTicksInitialization(RANGE_ID, () => {
     void (async () => {
-      setLock(true)
+      setRebuildInProgress(true)
       const L = await rebuildDataAndPack()
       const ts = ticksStore[RANGE_ID]
       setTickReadout(ts ? ts.ticks.viewableRange.length : 0)
@@ -774,7 +847,7 @@ export const mountScrollLanesDemo = (options: MountScrollLanesDemoOptions = {}) 
       aperture.scrollLeft = sl0
       updateReadout(sl0)
       persistUi()
-      setLock(false)
+      setRebuildInProgress(false)
     })()
   })
   registerTicks(RANGE_ID, makeTickFn(), true)

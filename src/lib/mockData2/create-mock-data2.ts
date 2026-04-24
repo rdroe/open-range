@@ -21,6 +21,7 @@ const runSyntheticDelay = async (opt: MockData2FetchOptions | undefined) => {
   const raw = opt.syntheticDelayMs()
   const ms = Math.max(0, Math.floor(Number(raw)))
   if (!Number.isFinite(ms) || ms <= 0) return
+  opt.onSyntheticDelayScheduled?.(ms)
   await new Promise<void>((r) => setTimeout(r, ms))
 }
 

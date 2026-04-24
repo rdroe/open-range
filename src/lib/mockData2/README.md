@@ -30,6 +30,7 @@
 - **`generateElementsForGap(gap, tagKey)`** — optional; if set, replaces the built-in PRNG layout (and `dataPropertyGenerators` is ignored). Use for app-specific shapes (e.g. the scroll-lanes demo maps this to `generateElementsForRange` and stores lane fields in `data`).
 - `fetchRange(tags, { start, end }, options?)` — run the flow above; async for persistence.
 - **`syntheticDelayMs`**: optional `() => number` on the third-argument `MockData2FetchOptions`. If this fetch has **at least one gap** to fill, the return value (milliseconds, floored, ≥ 0) is **awaited** before gap generation—simulated latency. Omitted (or a fully cache-hit request with no new gaps) → no wait.
+- **`onSyntheticDelayScheduled(ms)`** — optional; called **once** with the same `ms` immediately before that wait, only when a non-zero delay is scheduled. Not called on cache hit or if `syntheticDelayMs` returns 0.
 - **Persistence** — same pattern as v1: optional `MockPersistenceAdapter2` (`getItem` / `setItem` / `removeItem` of strings). Default is in-memory only.
 
 ## Optional `data` on each element
