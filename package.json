@@ -1,6 +1,6 @@
 {
   "name": "open-range",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "description": "Async range tracking with EventTarget subscriptions (viewable + prefetch slices) and optional ticks",
   "type": "module",
   "license": "MIT",
