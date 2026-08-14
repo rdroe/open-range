@@ -1,4 +1,5 @@
 import { createDetailEvent } from '../internal/detailEvent'
+import { RangeNotRegisteredError } from '../internal/errors'
 import type { NumericInput } from '../basicRange'
 import {
   registerRange,
@@ -76,37 +77,20 @@ const initializationSubscribers: {
   [rangeId: string]: (() => void)[]
 } = {}
 
-/**
- * Ranges that have been unregistered but whose store entries are retained so
- * that reads keep returning last-known values (0.3.x compatibility). A
- * tombstoned id may be registered again: registration purges the stale entries
- * first. In 0.4 unregister deletes outright and these semantics go away.
- */
-const disposedRangeIds = new Set<string>()
-const warnedDisposedRangeIds = new Set<string>()
-
-export const isRangeDisposed = (rangeId: string) => disposedRangeIds.has(rangeId)
-
-const warnIfDisposed = (rangeId: string) => {
-  if (!disposedRangeIds.has(rangeId) || warnedDisposedRangeIds.has(rangeId)) {
-    return
-  }
-  warnedDisposedRangeIds.add(rangeId)
-  console.warn(
-    `[open-range] accessConversionStore("${rangeId}") was called after ` +
-      `unregisterReadableRange. Reads return the last-known values for now, ` +
-      `but this will throw in 0.4 — snapshot what you need before unregistering.`
-  )
-}
-
 const purgeRange = (rangeId: string) => {
   delete conversionStore[rangeId]
   delete conversionEmitters[rangeId]
   delete initializationSubscribers[rangeId]
   delete basicRangeStore[rangeId]
   delete emitters[rangeId]
-  disposedRangeIds.delete(rangeId)
-  warnedDisposedRangeIds.delete(rangeId)
+}
+
+const requireEntry = (rangeId: string) => {
+  const entry = conversionStore[rangeId]
+  if (!entry) {
+    throw new RangeNotRegisteredError(rangeId)
+  }
+  return entry
 }
 
 export const subscribeToRangeInitialization = (
@@ -154,98 +138,97 @@ export const accessConversionStore = <
 >(
   rangeId: string
 ) => {
-  warnIfDisposed(rangeId)
   return {
     get input() {
-      return conversionStore[rangeId].input as InputType
+      return requireEntry(rangeId).input as InputType
     },
     set input(value: InputType) {
 
       // @ts-expect-error - we know that the input is a proper type
-      conversionStore[rangeId].input = requireMatchingInputType<InputType>(
-        conversionStore[rangeId].input,
+      requireEntry(rangeId).input = requireMatchingInputType<InputType>(
+        requireEntry(rangeId).input,
         value
       )
     },
     get viewableRange() {
-      return conversionStore[rangeId].viewableRange as [
+      return requireEntry(rangeId).viewableRange as [
         start: InputType,
         end: InputType,
       ]
     },
     set viewableRange(value: [start: InputType, end: InputType]) {
-      conversionStore[rangeId].viewableRange = [
+      requireEntry(rangeId).viewableRange = [
         requireMatchingInputType<InputType>(
-          conversionStore[rangeId].viewableRange[0],
+          requireEntry(rangeId).viewableRange[0],
           value[0]
         ),
 
         requireMatchingInputType<InputType>(
-          conversionStore[rangeId].viewableRange[1],
+          requireEntry(rangeId).viewableRange[1],
           value[1]
         ),
       ]
     },
     get nextLeftRange() {
-      return conversionStore[rangeId].nextLeftRange as [
+      return requireEntry(rangeId).nextLeftRange as [
         start: InputType,
         end: InputType,
       ]
     },
     set nextLeftRange(value: [start: InputType, end: InputType]) {
-      conversionStore[rangeId].nextLeftRange = [
+      requireEntry(rangeId).nextLeftRange = [
 
         requireMatchingInputType<InputType>(
-          conversionStore[rangeId].nextLeftRange[0],
+          requireEntry(rangeId).nextLeftRange[0],
           value[0]
         ),
         requireMatchingInputType<InputType>(
-          conversionStore[rangeId].nextLeftRange[1],
+          requireEntry(rangeId).nextLeftRange[1],
           value[1]
         ),
       ]
     },
     get nextRightRange() {
-      return conversionStore[rangeId].nextRightRange as [
+      return requireEntry(rangeId).nextRightRange as [
         start: InputType,
         end: InputType,
       ]
     },
     set nextRightRange(value: [start: InputType, end: InputType]) {
-      conversionStore[rangeId].nextRightRange = [
+      requireEntry(rangeId).nextRightRange = [
         requireMatchingInputType<InputType>(
-          conversionStore[rangeId].nextRightRange[0],
+          requireEntry(rangeId).nextRightRange[0],
           value[0]
         ),
         requireMatchingInputType<InputType>(
-          conversionStore[rangeId].nextRightRange[1],
+          requireEntry(rangeId).nextRightRange[1],
           value[1]
         ),
       ]
     },
     get convertedLoading() {
-      return conversionStore[rangeId].convertedLoading
+      return requireEntry(rangeId).convertedLoading
     },
     set convertedLoading(value: boolean) {
-      conversionStore[rangeId].convertedLoading = value
+      requireEntry(rangeId).convertedLoading = value
     },
     get convertedViewableRangeLoading() {
-      return conversionStore[rangeId].convertedViewableRangeLoading
+      return requireEntry(rangeId).convertedViewableRangeLoading
     },
     set convertedViewableRangeLoading(value: boolean) {
-      conversionStore[rangeId].convertedViewableRangeLoading = value
+      requireEntry(rangeId).convertedViewableRangeLoading = value
     },
     get convertedNextLeftRangeLoading() {
-      return conversionStore[rangeId].convertedNextLeftRangeLoading
+      return requireEntry(rangeId).convertedNextLeftRangeLoading
     },
     set convertedNextLeftRangeLoading(value: boolean) {
-      conversionStore[rangeId].convertedNextLeftRangeLoading = value
+      requireEntry(rangeId).convertedNextLeftRangeLoading = value
     },
     get convertedNextRightRangeLoading() {
-      return conversionStore[rangeId].convertedNextRightRangeLoading
+      return requireEntry(rangeId).convertedNextRightRangeLoading
     },
     set convertedNextRightRangeLoading(value: boolean) {
-      conversionStore[rangeId].convertedNextRightRangeLoading = value
+      requireEntry(rangeId).convertedNextRightRangeLoading = value
     },
   }
 }
@@ -256,12 +239,12 @@ function convertUpdatedInputHandler<InputType extends StringOrNumberOrDate>(
   const { rangeId, input } = event.detail
 
   // @ts-expect-error - we know that the input is a proper type
-  conversionStore[rangeId].input = conversionStore[rangeId].fns.numberToInput(
+  requireEntry(rangeId).input = requireEntry(rangeId).fns.numberToInput(
     input
   ) as InputType
   conversionEmitters[rangeId].inputConverted.dispatchEvent(
     createDetailEvent(getConversionEventNames(rangeId).inputConverted, {
-      detail: { rangeId, input: conversionStore[rangeId].input },
+      detail: { rangeId, input: requireEntry(rangeId).input },
     })
   )
 }
@@ -281,7 +264,7 @@ function convertUpdatedViewableRangeHandler<
     throw new Error('Invalid event detail')
   }
 
-  const {numberToInput} = conversionStore[rangeId].fns
+  const {numberToInput} = requireEntry(rangeId).fns
     accessConversionStore<InputType>(rangeId).viewableRange = viewableRange.map((value) => numberToInput(value as number)) as [start: InputType, end: InputType]
   conversionEmitters[rangeId].viewableRangeConverted.dispatchEvent(
     createDetailEvent(getConversionEventNames(rangeId).viewableRangeConverted, {
@@ -316,7 +299,7 @@ function convertUpdatedNextLeftRangeHandler<
     throw new Error('Invalid event detail')
   }
 
-  const {numberToInput} = conversionStore[rangeId].fns
+  const {numberToInput} = requireEntry(rangeId).fns
   accessConversionStore<InputType>(rangeId).nextLeftRange = nextLeftRange.map((value) => numberToInput(value as number)) as [start: InputType, end: InputType]
   conversionEmitters[rangeId].nextLeftRangeConverted.dispatchEvent(
     createDetailEvent(getConversionEventNames(rangeId).nextLeftRangeConverted, {
@@ -350,7 +333,7 @@ function convertUpdatedNextRightRangeHandler<
   if (!rangeId || nextRightRange === undefined) {
     throw new Error('Invalid event detail')
   }
-  const {numberToInput} = conversionStore[rangeId].fns
+  const {numberToInput} = requireEntry(rangeId).fns
   accessConversionStore<InputType>(rangeId).nextRightRange = nextRightRange.map((value) => numberToInput(value as number)) as [start: InputType, end: InputType]
   conversionEmitters[rangeId].nextRightRangeConverted.dispatchEvent(
     createDetailEvent(getConversionEventNames(rangeId).nextRightRangeConverted, {
@@ -528,12 +511,6 @@ export const registerReadableRange = async <
     throw new Error('Initial input must be a  number')
   }
 
-  // A fresh registration over a tombstoned id replaces it: the retained
-  // entries exist only so post-unregister reads keep working, and reuse of the
-  // id supersedes that.
-  if (!isReregistration && disposedRangeIds.has(rangeId)) {
-    purgeRange(rangeId)
-  }
 
   registerRange(
     rangeId,
@@ -883,7 +860,7 @@ export const updateRange = <InputType extends StringOrNumberOrDate>(
 ) => {
   updateRangeInputInner(
     rangeId,
-    conversionStore[rangeId].fns.inputToNumber(input)
+    requireEntry(rangeId).fns.inputToNumber(input)
   )
 }
 
@@ -909,11 +886,11 @@ setConversionStoreCallbacks(
   getConversionEventNames
 )
 
-// remove all listeners and cleanup for a range. The store entries are retained
-// as a tombstone so late reads keep returning last-known values (0.3.x
-// compatibility); registering the same id again replaces them. 0.4 deletes
-// the entries here outright.
+// remove all listeners, run cleanup, and delete every registry entry for the
+// range. The id is immediately reusable; reads after unregister throw
+// RangeNotRegisteredError.
 export const unregisterReadableRange = (rangeId: string) => {
+  requireEntry(rangeId)
   unregisterRange(rangeId)
 
   // The conversion handlers were added to the basicRange emitters at
@@ -949,7 +926,5 @@ export const unregisterReadableRange = (rangeId: string) => {
     convertUpdatedNextRightRangeLoadingHandler
   )
   conversionEmitters[rangeId].cleanup.forEach((cleanupFn) => cleanupFn())
-  conversionEmitters[rangeId].cleanup = []
-
-  disposedRangeIds.add(rangeId)
+  purgeRange(rangeId)
 }

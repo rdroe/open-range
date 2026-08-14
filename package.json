@@ -1,6 +1,6 @@
 {
   "name": "open-range",
-  "version": "0.3.9",
+  "version": "0.4.0",
   "description": "Async range tracking with EventTarget subscriptions (viewable + prefetch slices) and optional ticks",
   "type": "module",
   "license": "MIT",
@@ -84,5 +84,13 @@
     "vite": "^6.0.3",
     "vitest": "^2.1.8"
   },
-  "packageManager": "yarn@4.0.2"
+  "packageManager": "yarn@4.0.2",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rdroe/open-range.git"
+  },
+  "bugs": {
+    "url": "https://github.com/rdroe/open-range/issues"
+  },
+  "homepage": "https://github.com/rdroe/open-range#readme"
 }

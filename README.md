@@ -302,3 +302,15 @@ Production build entries include `index.html`, `mock-data-demo.html`, and `libra
 ## License
 
 MIT
+
+
+## Lifecycle semantics (0.4+)
+
+`unregister*` deletes every registry entry for the id: reads after
+unregistration throw `RangeNotRegisteredError`, and the id is immediately
+reusable by a fresh `register*` call. Registering an id that is still live
+throws `DuplicateRangeIdError`. Both errors are exported and carry a `rangeId`
+property. If you need final values after teardown, snapshot them before
+calling unregister. (Prior to 0.4, unregistered ranges leaked their store
+entries; ids were single-use per session and post-unregister reads silently
+returned stale values.)
