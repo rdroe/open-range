@@ -1,6 +1,6 @@
 // 
 
-import { conversionStore, registerReadableRange, subscribeToRangeConvertedEndLoading, unregisterReadableRange, updateRange } from "../readableRange"
+import { conversionStore, isRangeDisposed, registerReadableRange, subscribeToRangeConvertedEndLoading, unregisterReadableRange, updateRange } from "../readableRange"
 
 export  type DimensionalRange = {
     zoom: number
@@ -54,7 +54,9 @@ type DimensionalRegistration<InputType extends string | number | Date> = {
 }
 
 export const registerDimensionalRange = <InputType extends string | number | Date>(rangeId: string, params: DimensionalRegistration<InputType>) => {
-    if (conversionStore[rangeId]) {
+    // A tombstoned entry (unregistered, retained for late reads) does not
+    // block reuse of the id; registration replaces it.
+    if (conversionStore[rangeId] && !isRangeDisposed(rangeId)) {
         throw new Error('Readable range underlying dimensional range already registered')
     }
     const {  initialInput, dimensionalRange, inputToNumber, numberToInput } = params

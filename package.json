@@ -1,6 +1,6 @@
 {
   "name": "open-range",
-  "version": "0.3.7",
+  "version": "0.3.9",
   "description": "Async range tracking with EventTarget subscriptions (viewable + prefetch slices) and optional ticks",
   "type": "module",
   "license": "MIT",
@@ -58,6 +58,8 @@
   ],
   "scripts": {
     "prepublishOnly": "yarn build",
+    "prepack": "node scripts/verify-dist.mjs",
+    "verify:dist": "node scripts/verify-dist.mjs",
     "dev": "vite",
     "dev:e2e": "vite --port 5320 --strictPort --host 127.0.0.1",
     "playwright:install": "playwright install chromium",

@@ -7,6 +7,7 @@ import {
   getEventNames2,
   setConversionStoreCallbacks,
   unregisterRange,
+  store as basicRangeStore,
 } from '../basicRange'
 
 export type StringOrNumberOrDate = string | number | Date
@@ -69,11 +70,44 @@ export const getConversionEventNames = (rangeId: string) => {
     convertedNextRightRangeLoading: `${rangeId}-${CONVERTED_NEXT_RIGHT_RANGE_LOADING_EVENT}`,
   }
 }
-// initialization subscribers are handled differently. 
+// initialization subscribers are handled differently.
 // the user may need to know when the range is initialized before the emitters are keyed.
 const initializationSubscribers: {
   [rangeId: string]: (() => void)[]
 } = {}
+
+/**
+ * Ranges that have been unregistered but whose store entries are retained so
+ * that reads keep returning last-known values (0.3.x compatibility). A
+ * tombstoned id may be registered again: registration purges the stale entries
+ * first. In 0.4 unregister deletes outright and these semantics go away.
+ */
+const disposedRangeIds = new Set<string>()
+const warnedDisposedRangeIds = new Set<string>()
+
+export const isRangeDisposed = (rangeId: string) => disposedRangeIds.has(rangeId)
+
+const warnIfDisposed = (rangeId: string) => {
+  if (!disposedRangeIds.has(rangeId) || warnedDisposedRangeIds.has(rangeId)) {
+    return
+  }
+  warnedDisposedRangeIds.add(rangeId)
+  console.warn(
+    `[open-range] accessConversionStore("${rangeId}") was called after ` +
+      `unregisterReadableRange. Reads return the last-known values for now, ` +
+      `but this will throw in 0.4 — snapshot what you need before unregistering.`
+  )
+}
+
+const purgeRange = (rangeId: string) => {
+  delete conversionStore[rangeId]
+  delete conversionEmitters[rangeId]
+  delete initializationSubscribers[rangeId]
+  delete basicRangeStore[rangeId]
+  delete emitters[rangeId]
+  disposedRangeIds.delete(rangeId)
+  warnedDisposedRangeIds.delete(rangeId)
+}
 
 export const subscribeToRangeInitialization = (
   rangeId: string,
@@ -120,6 +154,7 @@ export const accessConversionStore = <
 >(
   rangeId: string
 ) => {
+  warnIfDisposed(rangeId)
   return {
     get input() {
       return conversionStore[rangeId].input as InputType
@@ -493,6 +528,13 @@ export const registerReadableRange = async <
     throw new Error('Initial input must be a  number')
   }
 
+  // A fresh registration over a tombstoned id replaces it: the retained
+  // entries exist only so post-unregister reads keep working, and reuse of the
+  // id supersedes that.
+  if (!isReregistration && disposedRangeIds.has(rangeId)) {
+    purgeRange(rangeId)
+  }
+
   registerRange(
     rangeId,
     isReregistration && initialInput === null ? null : numericInitialInput,
@@ -509,21 +551,24 @@ export const registerReadableRange = async <
   }
 
   if (isReregistration) {
-
-    conversionEmitters[rangeId].inputConverted.removeEventListener(
-      getConversionEventNames(rangeId).inputConverted,
+    // The conversion handlers live on the basicRange emitters (that is where
+    // registration adds them below); earlier versions removed them from the
+    // conversionEmitters, which never held them, so the removals were no-ops
+    // masked by addEventListener deduplicating the re-add.
+    emitters[rangeId].inputChanged.removeEventListener(
+      getEventNames2(rangeId).inputChanged,
       convertUpdatedInputHandler
     )
-    conversionEmitters[rangeId].viewableRangeConverted.removeEventListener(
-      getConversionEventNames(rangeId).viewableRangeConverted,
+    emitters[rangeId].viewableRange.removeEventListener(
+      getEventNames2(rangeId).viewableRange,
       convertUpdatedViewableRangeHandler
     )
-    conversionEmitters[rangeId].nextLeftRangeConverted.removeEventListener(
-      getConversionEventNames(rangeId).nextLeftRangeConverted,
+    emitters[rangeId].nextLeftRange.removeEventListener(
+      getEventNames2(rangeId).nextLeftRange,
       convertUpdatedNextLeftRangeHandler
     )
-    conversionEmitters[rangeId].nextRightRangeConverted.removeEventListener(
-      getConversionEventNames(rangeId).nextRightRangeConverted,
+    emitters[rangeId].nextRightRange.removeEventListener(
+      getEventNames2(rangeId).nextRightRange,
       convertUpdatedNextRightRangeHandler
     )
 
@@ -533,7 +578,7 @@ export const registerReadableRange = async <
       getConversionEventNames(rangeId).convertedNextRightRangeLoading,
       convertUpdatedNextRightRangeLoadingHandler
     )
-    // this is commented out because I think we want to keep the user subscriptions. 
+    // this is commented out because I think we want to keep the user subscriptions.
     // conversionEmitters[rangeId].cleanup.forEach((cleanupFn) => cleanupFn())
     // conversionEmitters[rangeId].cleanup = []
   } else {
@@ -864,24 +909,30 @@ setConversionStoreCallbacks(
   getConversionEventNames
 )
 
-// remove all listeners and cleanup for a range, return a function to unsubscribe
+// remove all listeners and cleanup for a range. The store entries are retained
+// as a tombstone so late reads keep returning last-known values (0.3.x
+// compatibility); registering the same id again replaces them. 0.4 deletes
+// the entries here outright.
 export const unregisterReadableRange = (rangeId: string) => {
   unregisterRange(rangeId)
 
-  conversionEmitters[rangeId].inputConverted.removeEventListener(
-    getConversionEventNames(rangeId).inputConverted,
+  // The conversion handlers were added to the basicRange emitters at
+  // registration; earlier versions removed them from conversionEmitters (which
+  // never held them), leaving the range still converting after unregister.
+  emitters[rangeId].inputChanged.removeEventListener(
+    getEventNames2(rangeId).inputChanged,
     convertUpdatedInputHandler
   )
-  conversionEmitters[rangeId].viewableRangeConverted.removeEventListener(
-    getConversionEventNames(rangeId).viewableRangeConverted,
+  emitters[rangeId].viewableRange.removeEventListener(
+    getEventNames2(rangeId).viewableRange,
     convertUpdatedViewableRangeHandler
   )
-  conversionEmitters[rangeId].nextLeftRangeConverted.removeEventListener(
-    getConversionEventNames(rangeId).nextLeftRangeConverted,
+  emitters[rangeId].nextLeftRange.removeEventListener(
+    getEventNames2(rangeId).nextLeftRange,
     convertUpdatedNextLeftRangeHandler
   )
-  conversionEmitters[rangeId].nextRightRangeConverted.removeEventListener(
-    getConversionEventNames(rangeId).nextRightRangeConverted,
+  emitters[rangeId].nextRightRange.removeEventListener(
+    getEventNames2(rangeId).nextRightRange,
     convertUpdatedNextRightRangeHandler
   )
 
@@ -899,4 +950,6 @@ export const unregisterReadableRange = (rangeId: string) => {
   )
   conversionEmitters[rangeId].cleanup.forEach((cleanupFn) => cleanupFn())
   conversionEmitters[rangeId].cleanup = []
+
+  disposedRangeIds.add(rangeId)
 }
