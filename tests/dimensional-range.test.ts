@@ -103,14 +103,14 @@ describe('dimensionalRange', () => {
 
   it('unregisterDimensionalRange throws when range missing', () => {
     expect(() => unregisterDimensionalRange('dim-missing-xyz')).toThrow(
-      /not found/
+      /no range is registered/
     )
   })
 
   it('updateDimensionalRangeParams throws when range missing', () => {
     expect(() =>
       updateDimensionalRangeParams('dim-missing-params', baseDim)
-    ).toThrow(/not found/)
+    ).toThrow(/no range is registered/)
   })
 
   it('string-typed dimensional range', async () => {

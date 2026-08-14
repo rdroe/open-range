@@ -186,11 +186,11 @@ const getCompletionEventHandler = (rangeId: string, rangeName: "viewableRange" |
 }
 
 export const registerTicks = (rangeId: string, createDefaultTicks: (inputRange: [start: number, end: number]) => Promise<TicksArray<number>>, runImmediately: boolean = false) => {
-  fns[rangeId] = {
-    createDefaultTicks: createDefaultTicks,
-  }
   if (ticksStore[rangeId]) {
     unregisterTicks(rangeId)
+  }
+  fns[rangeId] = {
+    createDefaultTicks: createDefaultTicks,
   }
   if (!ticksStore[rangeId]) {
     ticksStore[rangeId] = {
@@ -251,10 +251,11 @@ export const registerTicks = (rangeId: string, createDefaultTicks: (inputRange: 
 
 export const unregisterTicks = (rangeId: string) => {
   cleanup[rangeId].forEach((cleanupFn) => cleanupFn())
-  cleanup[rangeId] = []
-  emitters[rangeId] = {}
-  ticksStore[rangeId] = undefined
-  isLoading[rangeId] = undefined
+  delete cleanup[rangeId]
+  delete emitters[rangeId]
+  delete ticksStore[rangeId]
+  delete isLoading[rangeId]
+  delete fns[rangeId]
 }
 
 /** Lets subscribe run before registerTicks without throwing; registerTicks still required for tick data. */

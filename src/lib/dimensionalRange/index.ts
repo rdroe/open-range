@@ -1,6 +1,7 @@
 // 
 
-import { conversionStore, isRangeDisposed, registerReadableRange, subscribeToRangeConvertedEndLoading, unregisterReadableRange, updateRange } from "../readableRange"
+import { conversionStore, registerReadableRange, subscribeToRangeConvertedEndLoading, unregisterReadableRange, updateRange } from "../readableRange"
+import { DuplicateRangeIdError, RangeNotRegisteredError } from "../internal/errors"
 
 export  type DimensionalRange = {
     zoom: number
@@ -54,10 +55,8 @@ type DimensionalRegistration<InputType extends string | number | Date> = {
 }
 
 export const registerDimensionalRange = <InputType extends string | number | Date>(rangeId: string, params: DimensionalRegistration<InputType>) => {
-    // A tombstoned entry (unregistered, retained for late reads) does not
-    // block reuse of the id; registration replaces it.
-    if (conversionStore[rangeId] && !isRangeDisposed(rangeId)) {
-        throw new Error('Readable range underlying dimensional range already registered')
+    if (conversionStore[rangeId]) {
+        throw new DuplicateRangeIdError(rangeId)
     }
     const {  initialInput, dimensionalRange, inputToNumber, numberToInput } = params
     const fns = getDimensionalRangeFunctions(dimensionalRange)
@@ -72,16 +71,16 @@ export const registerDimensionalRange = <InputType extends string | number | Dat
 }
 export const unregisterDimensionalRange = <InputType extends string | number | Date>(rangeId: string) => {
     if (!conversionStore[rangeId]) {
-        throw new Error('Dimensional range not found')
+        throw new RangeNotRegisteredError(rangeId)
     }
-    unregisterReadableRange(rangeId)   
+    unregisterReadableRange(rangeId)
 }
 
 export const updateDimensionalRange = updateRange
 
 export const updateDimensionalRangeParams = <InputType extends string | number | Date>(rangeId: string, dimensionalRange: DimensionalRange) => {
     if (!conversionStore[rangeId]) {
-        throw new Error('Dimensional range not found')
+        throw new RangeNotRegisteredError(rangeId)
     }
 
     const fns = getDimensionalRangeFunctions(dimensionalRange)
